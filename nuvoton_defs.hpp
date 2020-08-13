@@ -23,3 +23,7 @@
 
 #define PDID                      0xf0800000
 #define PWRON                     0xf0800004
+#define SPSWC                     0xf0800038
+
+#define GEN_MASK                  0xff000000
+#define SPSWC_MASK                0x00000007
