@@ -30,7 +30,10 @@ static constexpr NetFn netFnApp = netFnOemEight;
 namespace general
 {
 static constexpr Cmd cmdGetStrapPinStatus = 0x02;
-static constexpr Cmd cmdGetUartMode = 0x03;
+
+static constexpr Cmd cmdGetUartMode = 0x04;
+
+static constexpr Cmd cmdGetUsbDeviceStatus = 0x06;
 
 } // namespace general
 

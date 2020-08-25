@@ -21,9 +21,19 @@
 #define LENGTH_32BIT              32
 #define LENGTH_64BIT              64
 
+#define SUCCESS                   0x0
+
 #define PDID                      0xf0800000
+
 #define PWRON                     0xf0800004
+
 #define SPSWC                     0xf0800038
+
+#define USB_BASE                  0xf0830000
+#define USB_CTL_START             0
+#define USB_CTL_END               9
+#define USB_OFFSET                0x1000
+#define USB_DEVICE_ADDR           0x154
 
 #define GEN_MASK                  0xff000000
 #define SPSWC_MASK                0x00000007
