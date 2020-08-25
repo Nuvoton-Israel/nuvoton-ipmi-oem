@@ -90,6 +90,25 @@ uint64_t devmem_read(off_t target, unsigned width, bool &ret)
     return read_result;
 }
 
+ipmi::RspType<uint8_t> ipmiOEMGetUsbDeviceStatus (uint8_t id)
+{
+    bool ret;
+    uint32_t mask = GEN_MASK;
+    uint32_t reg = USB_BASE;
+
+    if( (USB_CTL_START > id) || (USB_CTL_END < id) )
+    {
+        return ipmi::responseInvalidFieldRequest();
+    }
+
+    uint64_t read_result = devmem_read( (reg + id*USB_OFFSET + USB_DEVICE_ADDR), LENGTH_32BIT, ret);
+
+    // The USBADR starts from the 25th bit.
+    uint8_t valid = static_cast<uint8_t> ( ((uint32_t)read_result & mask) >> 25);
+
+    return (valid)? ipmi::responseSuccess(SUCCESS) : ipmi::responseResponseError();
+}
+
 ipmi::RspType<uint8_t> ipmiOEMGetUartMode (void)
 {
     bool ret;
@@ -97,7 +116,7 @@ ipmi::RspType<uint8_t> ipmiOEMGetUartMode (void)
     uint64_t read_result = devmem_read(SPSWC, LENGTH_32BIT, ret);
     return (ret)? ipmi::responseSuccess(
                        static_cast<uint8_t> (((uint32_t)read_result & mask))
-                                       ): ipmi::responseInvalidFieldRequest();
+                                       ): ipmi::responseResponseError();
 }
 
 ipmi::RspType<uint8_t,
@@ -112,7 +131,7 @@ ipmi::RspType<uint8_t,
                                          static_cast<uint8_t> (((uint32_t)read_result & (mask>>8))>>16),
                        static_cast<uint8_t> (((uint32_t)read_result & (mask>>16))>>8),
                        static_cast<uint8_t> (((uint32_t)read_result & (mask>>24)))
-                                       ): ipmi::responseInvalidFieldRequest();
+                                       ): ipmi::responseResponseError();
 }
 
 
@@ -134,6 +153,11 @@ static void registerOEMFunctions(void)
     registerHandler(prioOemBase, nuvoton::netFnGeneral,
                       nuvoton::general::cmdGetUartMode, Privilege::Callback,
                       ipmiOEMGetUartMode);
+
+    // <Get USB device status command>
+    registerHandler(prioOemBase, nuvoton::netFnGeneral,
+                      nuvoton::general::cmdGetUsbDeviceStatus, Privilege::Callback,
+                      ipmiOEMGetUsbDeviceStatus);
 
 }
 
