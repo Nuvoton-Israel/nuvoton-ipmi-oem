@@ -29,6 +29,13 @@
 
 #define SPSWC                     0xf0800038
 
+#define MFSEL1                    0xf080000C
+#define MFSEL2                    0xf0800010
+#define MFSEL3                    0xf0800064
+#define MFSEL4                    0xf08000B0
+
+#define INTCR2                    0xf0800060
+
 #define USB_BASE                  0xf0830000
 #define USB_CTL_START             0
 #define USB_CTL_END               9
@@ -37,3 +44,4 @@
 
 #define GEN_MASK                  0xff000000
 #define SPSWC_MASK                0x00000007
+#define BIT_MASK                  0x00000001

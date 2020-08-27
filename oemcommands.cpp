@@ -90,6 +90,29 @@ uint64_t devmem_read(off_t target, unsigned width, bool &ret)
     return read_result;
 }
 
+ipmi::RspType<uint8_t,
+              uint8_t
+             >
+ipmiOEMGetBmcRebootReason (void)
+{
+    bool ret;
+    uint32_t mask = GEN_MASK;
+    uint32_t mask2 = BIT_MASK;
+    uint64_t read_result = devmem_read(INTCR2, LENGTH_32BIT, ret);
+    return (ret)? ipmi::responseSuccess(
+                      (((uint32_t)read_result & (mask) )>>24),
+                      (((uint32_t)read_result & (mask2<<23) )>>16)
+                        ): ipmi::responseResponseError();
+}
+
+ipmi::RspType<uint8_t, //direction
+              uint8_t  //high/low
+              >
+ipmiOEMGetGpioStatus (uint8_t pinNum)
+{
+    return ipmi::responseSuccess(SUCCESS, SUCCESS);
+}
+
 ipmi::RspType<uint8_t> ipmiOEMGetUsbDeviceStatus (uint8_t id)
 {
     bool ret;
@@ -121,8 +144,9 @@ ipmi::RspType<uint8_t> ipmiOEMGetUartMode (void)
 
 ipmi::RspType<uint8_t,
               uint8_t,
-			  uint8_t,
-			  uint8_t> ipmiOEMGetStrapPinStatus(void)
+			        uint8_t,
+			        uint8_t>
+ipmiOEMGetStrapPinStatus(void)
 {
     bool ret;
     uint32_t mask = GEN_MASK;
@@ -158,6 +182,16 @@ static void registerOEMFunctions(void)
     registerHandler(prioOemBase, nuvoton::netFnGeneral,
                       nuvoton::general::cmdGetUsbDeviceStatus, Privilege::Callback,
                       ipmiOEMGetUsbDeviceStatus);
+
+    // <Get GPIO status command>
+    registerHandler(prioOemBase, nuvoton::netFnGeneral,
+                      nuvoton::general::cmdGetGpioStatus, Privilege::Callback,
+                      ipmiOEMGetGpioStatus);
+
+    // <Get BMC reboot reason command>
+    registerHandler(prioOemBase, nuvoton::netFnGeneral,
+                      nuvoton::general::cmdGetBmcRebootReason, Privilege::Callback,
+                      ipmiOEMGetBmcRebootReason);
 
 }
 
