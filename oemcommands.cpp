@@ -90,6 +90,27 @@ uint64_t devmem_read(off_t target, unsigned width, bool &ret)
     return read_result;
 }
 
+ipmi::RspType<uint8_t> ipmiOEMGetImageLocationStatus (void)
+{
+    bool ret;
+    uint64_t read_result = devmem_read(ROM_CODE_STATUS, LENGTH_32BIT, ret);
+    if (ret)
+    {
+        switch ((uint8_t)read_result)
+        {
+            case ST_ROM_USE_IMAGE_SPI0_CS0_OFFSET_0:
+            case ST_ROM_USE_IMAGE_SPI0_CS0_OFFSET_80000:
+                return ipmi::responseSuccess(FLASH_0);
+            case ST_ROM_USE_IMAGE_SPI0_CS1_OFFSET_0:
+                return ipmi::responseSuccess(FLASH_1);
+            default:
+                return ipmi::responseResponseError();
+        }
+    }
+    else
+        return ipmi::responseResponseError();
+}
+
 ipmi::RspType<uint8_t,
               uint8_t
              >
@@ -192,6 +213,11 @@ static void registerOEMFunctions(void)
     registerHandler(prioOemBase, nuvoton::netFnGeneral,
                       nuvoton::general::cmdGetBmcRebootReason, Privilege::Callback,
                       ipmiOEMGetBmcRebootReason);
+
+    // <Get image location status command>
+    registerHandler(prioOemBase, nuvoton::netFnGeneral,
+                      nuvoton::general::cmdGetImageLocationStatus, Privilege::Callback,
+                      ipmiOEMGetImageLocationStatus);
 
 }
 

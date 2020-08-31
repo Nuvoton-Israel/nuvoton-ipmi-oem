@@ -255,6 +255,8 @@ static constexpr Cmd cmdGetUsbDeviceStatus = 0x06;
 static constexpr Cmd cmdGetGpioStatus = 0x08;
 
 static constexpr Cmd cmdGetBmcRebootReason = 0x0a;
+
+static constexpr Cmd cmdGetImageLocationStatus = 0x0c;
 } // namespace general
 
 } // namespace nuvoton

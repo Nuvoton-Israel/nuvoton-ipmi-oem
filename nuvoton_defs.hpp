@@ -42,6 +42,13 @@
 #define USB_OFFSET                0x1000
 #define USB_DEVICE_ADDR           0x154
 
+#define ROM_CODE_STATUS           0xf084bffc
+#define ST_ROM_USE_IMAGE_SPI0_CS0_OFFSET_0     0x21
+#define ST_ROM_USE_IMAGE_SPI0_CS0_OFFSET_80000 0x22
+#define ST_ROM_USE_IMAGE_SPI0_CS1_OFFSET_0     0x23
+#define FLASH_0                   0
+#define FLASH_1                   1
+
 #define GEN_MASK                  0xff000000
 #define SPSWC_MASK                0x00000007
 #define BIT_MASK                  0x00000001
