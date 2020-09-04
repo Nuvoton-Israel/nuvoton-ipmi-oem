@@ -126,12 +126,153 @@ ipmiOEMGetBmcRebootReason (void)
                         ): ipmi::responseResponseError();
 }
 
+bool isGP (uint8_t pinNum)
+{
+    uint8_t loop;
+    uint8_t mask = 0;
+    bool isGpio = false, ret;
+    uint64_t read_result = devmem_read( (gpioLUT[pinNum].reg), LENGTH_32BIT, ret);
+
+    if (!ret)
+        return false;
+
+    // make the bit mask. The bit number might be greater than 1.
+    for(loop = 0; loop < gpioLUT[pinNum].maskBit; loop++)
+    {
+        mask += (BIT_MASK << loop);
+    }
+
+    // check if the pin's value in MFSELx matches refValue
+    // If so, it means that the pin is or might be configured as a gpio.
+    if(gpioLUT[pinNum].refValue == ( ((uint32_t)read_result) &
+                                     (mask<<gpioLUT[pinNum].offSet) )>>gpioLUT[pinNum].offSet )
+    {
+        isGpio = true;
+
+        // if the pin needs to check the second MFSELx or the third MFSELx
+        // configuration in the look up table
+        struct gpio_lookup *next = gpioLUT[pinNum].next;
+
+        while(NULL != next)
+        {
+            struct gpio_lookup gl = *next;
+            read_result = devmem_read( gl.reg, LENGTH_32BIT, ret);
+
+            if (!ret)
+            {
+                isGpio = false;
+                break;
+            }
+
+            mask = 0;
+
+            for(loop = 0; loop < gl.maskBit; loop++)
+            {
+                mask += (BIT_MASK << loop);
+            }
+
+            if(gl.refValue == ( ( ((uint32_t)read_result) &
+                                             (mask<<gl.offSet) )>>gl.offSet  )  )
+                isGpio = true;
+            else
+            {
+                isGpio = false;
+                break;
+            }
+
+            next = gl.next;
+        }
+    }
+
+    return isGpio;
+}
+
+bool dumpGP (uint8_t pinNum, uint8_t &direction, uint8_t &level)
+{
+    bool ret;
+    uint64_t read_result = devmem_read( (GPIO0 + GPIO_OFFSET*(pinNum/GPIO_NUM_IN_GROUP) + GP_OE_OFFSET), LENGTH_32BIT, ret);
+
+
+    if (!ret)
+        return false;
+
+    uint8_t offSet = pinNum % GPIO_NUM_IN_GROUP;
+
+    // check if it's output-enabled
+    direction = ( ((uint32_t)read_result) & (BIT_MASK<<offSet) )>>offSet;
+
+    if (direction)
+    {
+        read_result = devmem_read( (GPIO0 + GPIO_OFFSET*(pinNum/GPIO_NUM_IN_GROUP) + GP_DOUT_OFFSET), LENGTH_32BIT, ret);
+
+        if (!ret)
+            return false;
+
+        level = ( ((uint32_t)read_result) & (BIT_MASK<<offSet) )>>offSet;
+
+        return true;
+    }
+
+    // check if it's input-enabled
+    read_result = devmem_read( (GPIO0 + GPIO_OFFSET*(pinNum/GPIO_NUM_IN_GROUP) + GP_IEM_OFFSET), LENGTH_32BIT, ret);
+
+    if (!ret)
+        return false;
+
+    direction = ( ((uint32_t)read_result) & (BIT_MASK<<offSet) )>>offSet;
+
+    if (direction)
+    {
+        direction = GP_DIR_INPUT;
+        read_result = devmem_read( (GPIO0 + GPIO_OFFSET*(pinNum/GPIO_NUM_IN_GROUP) + GP_DIN_OFFSET), LENGTH_32BIT, ret);
+
+        if (!ret)
+            return false;
+
+        level = ( ((uint32_t)read_result) & (BIT_MASK<<offSet) )>>offSet;
+        return true;
+    }
+
+    return false;
+}
+
 ipmi::RspType<uint8_t, //direction
               uint8_t  //high/low
               >
 ipmiOEMGetGpioStatus (uint8_t pinNum)
 {
-    return ipmi::responseSuccess(SUCCESS, SUCCESS);
+    uint8_t direction = 0;
+    uint8_t level = 0;
+
+    if ( (0 > pinNum) || (GPIO_NUM <= pinNum))
+    {
+        return ipmi::responseResponseError();
+    }
+
+    if (DEF_NONE == gpioLUT[pinNum].refValue)
+    {
+        return ipmi::responseResponseError();
+    }
+
+    if (DEF_GPIO == gpioLUT[pinNum].refValue)
+    {
+        if(!dumpGP(pinNum, direction, level))
+            return ipmi::responseResponseError();
+
+        return ipmi::responseSuccess(direction, level);
+    }
+    else
+    {
+        // Check if the pin is used as a gpio or something else.
+        // If it's a gpio, then the direction and level attributes of that
+        // pin is retrieved.
+        if( isGP(pinNum) && dumpGP(pinNum, direction, level) )
+            return ipmi::responseSuccess(direction, level);
+
+        return ipmi::responseResponseError();
+    }
+
+    return ipmi::responseResponseError();
 }
 
 ipmi::RspType<uint8_t> ipmiOEMGetUsbDeviceStatus (uint8_t id)
