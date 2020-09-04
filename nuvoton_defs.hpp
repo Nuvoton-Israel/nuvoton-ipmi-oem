@@ -23,6 +23,29 @@
 
 #define SUCCESS                   0x0
 
+#define GPIO0                     0xf0010000
+#define GPIO1                     0xf0011000
+#define GPIO2                     0xf0012000
+#define GPIO3                     0xf0013000
+#define GPIO4                     0xf0014000
+#define GPIO5                     0xf0015000
+#define GPIO6                     0xf0016000
+#define GPIO7                     0xf0017000
+
+#define GPIO_OFFSET               0x1000
+#define GPIO_NUM_IN_GROUP         32
+
+#define GP_DOUT_OFFSET            0xc
+#define GP_OE_OFFSET              0x10
+
+#define GP_DIN_OFFSET             0x4
+#define GP_IEM_OFFSET             0x58
+
+#define GP_DIR_OUTPUT             0x1
+#define GP_DIR_INPUT              0x0
+#define GP_LEVEL_HIGH             0x1
+#define GP_LEVEL_LOW              0x1
+
 #define PDID                      0xf0800000
 
 #define PWRON                     0xf0800004
@@ -35,6 +58,8 @@
 #define MFSEL4                    0xf08000B0
 
 #define INTCR2                    0xf0800060
+
+#define FLOCKR1                   0xf0800074
 
 #define USB_BASE                  0xf0830000
 #define USB_CTL_START             0
