@@ -69,3 +69,4 @@ Makefile
 *~
 .cscope/
 build/
+.vscode
