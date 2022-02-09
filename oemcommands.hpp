@@ -32,6 +32,11 @@ static constexpr Cmd cmdGetPwm = 0x92;
 static constexpr Cmd cmdSetPwm = 0x91;
 } // namespace fan
 
+namespace postcode
+{
+static constexpr Cmd cmdGetPostCode = 0x73;
+} // namespace postcode
+
 std::unique_ptr<IpmiPwmcontrol> pwm_control;
 void createPwmControl();
 ipmi::RspType<> ipmiOEMSetManualPwm(uint8_t enabled);

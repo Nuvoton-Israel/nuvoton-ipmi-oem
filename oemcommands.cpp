@@ -50,6 +50,33 @@ void createPwmControl()
     pwm_control = std::make_unique<IpmiPwmcontrol>();
 }
 
+ipmi::RspType<uint8_t> ipmiOEMGetPostCode(ipmi::Context::ptr& ctx)
+{
+    using postcode_t = std::tuple<uint64_t, std::vector<uint8_t>>;
+    auto conn = getSdBus();
+
+    try
+    {
+        auto method = conn->new_method_call(
+            "xyz.openbmc_project.State.Boot.Raw", "/xyz/openbmc_project/state/boot/raw0",
+            "org.freedesktop.DBus.Properties", "Get");
+
+        method.append("xyz.openbmc_project.State.Boot.Raw", "Value");
+
+        auto reply = conn->call(method);
+        std::variant<postcode_t> postCode;
+        reply.read(postCode);
+
+        return ipmi::responseSuccess(std::get<0>(std::get<postcode_t>(postCode)));
+    }
+    catch (std::exception& e)
+    {
+        log<level::ERR>("ipmiOEMGetPostCode err");
+        return ipmi::responseUnspecifiedError();
+    }
+
+    return ipmi::responseSuccess();
+}
 } // namespace nuvoton
 
 static void registerOEMFunctions() __attribute__((constructor));
@@ -71,6 +98,10 @@ static void registerOEMFunctions(void)
     // <Set PWM value  command>
     registerHandler(prioOemBase, netFnOemThree, nuvoton::fan::cmdSetPwm,
                     Privilege::Callback, nuvoton::ipmiOEMSetPwm);
+
+    // Get BIOS post code
+    registerHandler(prioOemBase, netFnOemTwo, nuvoton::postcode::cmdGetPostCode,
+                    Privilege::User, nuvoton::ipmiOEMGetPostCode);
 }
 
 } // namespace ipmi
