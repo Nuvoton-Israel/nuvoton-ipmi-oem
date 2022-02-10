@@ -230,11 +230,11 @@ static void registerOEMFunctions(void)
                     Privilege::Callback, nuvoton::ipmiOEMSetPwm);
 
     // Get BIOS post code
-    registerHandler(prioOemBase, netFnOemTwo, nuvoton::cmdGetPostCode,
+    registerHandler(prioOemBase, netFnOemThree, nuvoton::cmdGetPostCode,
                     Privilege::User, nuvoton::ipmiOEMGetPostCode);
 
     // Get firmware version
-    registerHandler(prioOemBase, netFnOemFive, nuvoton::cmdGetFimwareVer,
+    registerHandler(prioOemBase, netFnOemThree, nuvoton::cmdGetFimwareVer,
                     Privilege::User, nuvoton::ipmiOEMGetFirmwareVersion);
 }
 
