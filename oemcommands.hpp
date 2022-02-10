@@ -25,6 +25,20 @@ namespace ipmi
 namespace nuvoton
 {
 
+typedef struct
+{
+    char major;
+    char minor;
+} Revision;
+
+enum FirmwareType : uint8_t
+{
+    BIOS = 0,
+    CPLD,
+    BMC,
+    PSU,
+};
+
 namespace fan
 {
 static constexpr Cmd cmdSetManualPwm = 0x90;
@@ -32,10 +46,8 @@ static constexpr Cmd cmdGetPwm = 0x92;
 static constexpr Cmd cmdSetPwm = 0x91;
 } // namespace fan
 
-namespace postcode
-{
+static constexpr Cmd cmdGetFimwareVer = 0x0b;
 static constexpr Cmd cmdGetPostCode = 0x73;
-} // namespace postcode
 
 std::unique_ptr<IpmiPwmcontrol> pwm_control;
 void createPwmControl();
