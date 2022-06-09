@@ -57,6 +57,13 @@ AS_IF([test "x$with_systemdsystemunitdir" != "xno"],
       [AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])])
 AM_CONDITIONAL([HAVE_SYSTEMD], [test "x$with_systemdsystemunitdir" != "xno"])
 
+AC_ARG_VAR(SOC, [platform target SOC])
+AS_IF([test "x$SOC" != "x"],
+    AC_MSG_NOTICE([SOC set $SOC])
+    [cpp_flags="-D$SOC"]
+    AC_SUBST([CPPFLAGS], [$cpp_flags]),
+    AC_MSG_WARN([SOC not defined])
+)
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

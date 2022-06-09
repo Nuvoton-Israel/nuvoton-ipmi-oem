@@ -4,7 +4,8 @@ libnuvoemcmdsdir = ${libdir}/ipmid-providers
 libnuvoemcmds_LTLIBRARIES = libnuvoemcmds.la
 libnuvoemcmds_la_SOURCES = \
   oemcommands.cpp \
-  ipmi_pwm.cpp
+  ipmi_pwm.cpp \
+  gpio_oem.cpp
 libnuvoemcmds_la_CXXFLAGS = \
 	$(SDBUSPLUS_CFLAGS) \
 	$(LIBIPMID_CFLAGS) \
