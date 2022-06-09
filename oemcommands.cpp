@@ -207,6 +207,12 @@ ipmi::RspType<uint8_t, // major
 
     return ipmi::responseSuccess(rev.major, rev.minor);
 }
+
+ipmi::RspType<uint8_t, uint8_t> ipmiOEMGetGpio(uint8_t pinNum)
+{
+    return ipmiOEMGetGpioStatus(pinNum);
+}
+
 } // namespace nuvoton
 
 static void registerOEMFunctions() __attribute__((constructor));
@@ -236,6 +242,10 @@ static void registerOEMFunctions(void)
     // Get firmware version
     registerHandler(prioOemBase, netFnOemThree, nuvoton::cmdGetFimwareVer,
                     Privilege::User, nuvoton::ipmiOEMGetFirmwareVersion);
+
+    // <Get GPIO status command>
+    registerHandler(prioOemBase, netFnOemOne, nuvoton::cmdGetGpioStatus,
+                    Privilege::User, nuvoton::ipmiOEMGetGpio);
 }
 
 } // namespace ipmi

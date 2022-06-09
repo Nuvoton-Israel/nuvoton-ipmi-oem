@@ -20,6 +20,7 @@ Please include the recipe **nuvoton-ipmi-oem** in the packagegroups and make the
 | Read PWM |0x34| 0x92| [pwm_id] |[pwm_value]| read specific pwm value|
 | Get BIOS post code| 0x34 | 0x73 | - | [post code]||
 | Get firmware version | 0x34 | 0x0b | [fw_type] | [major] [minor] | fw_type:<br> 00h - BIOS<br>01h - CPLD<br>02h - BMC<br>03h - PSU |
+| Get GPIO status| 0x30 | 0xE1 | [pin_number] | [direction] [value]| return valid GPIO pin status, direction: 1=output, 0=input|
 
 ## Exmples
 ### Manual change PWM value
@@ -49,4 +50,10 @@ root@evb-npcm845:~# ipmitool raw 0x34 0x73
 # BMC version is 2.10
 root@evb-npcm845:~# ipmitool raw 0x34 0x0b 0x02
  02 0a
+```
+
+# Get GPIO status
+```bash
+root@evb-npcm845:~# ipmitool raw 0x30 0xE1 91
+ 01 00
 ```
