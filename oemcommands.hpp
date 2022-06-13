@@ -41,6 +41,7 @@ enum FirmwareType : uint8_t
 
 namespace fan
 {
+static constexpr Cmd cmdGetPwmMode = 0x89;
 static constexpr Cmd cmdSetManualPwm = 0x90;
 static constexpr Cmd cmdGetPwm = 0x92;
 static constexpr Cmd cmdSetPwm = 0x91;
@@ -52,6 +53,7 @@ static constexpr Cmd cmdGetGpioStatus = 0xE1;
 
 std::unique_ptr<IpmiPwmcontrol> pwm_control;
 void createPwmControl();
+ipmi::RspType<uint8_t> ipmiOEMGetPwmMode();
 ipmi::RspType<> ipmiOEMSetManualPwm(uint8_t enabled);
 ipmi::RspType<uint8_t> ipmiOEMGetPwm(uint8_t pwm_id);
 ipmi::RspType<uint8_t> ipmiOEMSetPwm(uint8_t pwm_id, uint8_t value);
