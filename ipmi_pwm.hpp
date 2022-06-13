@@ -40,6 +40,7 @@ class IpmiPwmcontrol
                            const std::string& interface,
                            const std::string& property, ipmi::Value value);
     uint8_t setManualPwm(uint8_t enabled);
+    uint8_t getPwmMode(uint8_t* value);
 
   private:
     std::string _fan_service = "";

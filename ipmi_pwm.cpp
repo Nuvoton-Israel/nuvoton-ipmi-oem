@@ -270,6 +270,44 @@ uint8_t IpmiPwmcontrol::setManualPwm(uint8_t enabled)
     return IPMI_CC_OK;
 }
 
+uint8_t IpmiPwmcontrol::getPwmMode(uint8_t* value)
+{
+    //  Get service and zone object paths
+    std::string service;
+    std::vector<std::string> objs;
+    ZoneInfo info = getPidZoneInfo();
+    bool reading = false;
+
+    if (info.first.empty())
+    {
+        log<level::WARNING>(
+            "Cannot get zone info, PID service may get some error");
+        return IPMI_CC_INVALID;
+    }
+
+    // Return non-manual if all zones are not manual
+    try
+    {
+        for (auto it = info.second.begin(); it != info.second.end(); ++it)
+        {
+            auto propValue =
+                ipmi::getDbusProperty(*getSdBus(), info.first, *it,
+                                      PID_FAN_INTF, PID_MANUAL_PROPERTY);
+            reading = std::get<bool>(propValue) || reading;
+        }
+        *value = (uint8_t)reading;
+    }
+    catch (const std::exception& e)
+    {
+        std::string msg;
+        msg = "Get fan property failed, " + std::string(e.what());
+        log<level::ERR>(msg.c_str());
+        return IPMI_CC_UNSPECIFIED_ERROR;
+    }
+
+    return IPMI_CC_OK;
+}
+
 /**
  * @brief Get the Pid Zone Info object
  * The getDbusObject function in ipmid will return only the

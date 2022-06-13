@@ -16,8 +16,9 @@ Please include the recipe **nuvoton-ipmi-oem** in the packagegroups and make the
 |Name  | NetFn | Commmand | Requst Data [byte]|  Return Data| Description |
 |------|---|---|---------|-----------|----------------|
 | Set PID manual mode for all zones | 0x34| 0x90| [enabled]| - | enabled set 0x01 to enter manaul mode; 0x0 to exit manual mode for all PID zones|
-| Set PWM |0x34| 0x91| [pwm_id] [value] | [set_value]| set specific pwm with value 0x0 ~ 0xff|
-| Read PWM |0x34| 0x92| [pwm_id] |[pwm_value]| read specific pwm value|
+| Get PID manual mode |0x32| 0x89| - |[mode]| 0:automatic mode, 1: manual mode|
+| Set PWM |0x32| 0x91| [pwm_id] [value] | [set_value]| set specific pwm with value 0x0 ~ 0xff|
+| Read PWM |0x32| 0x92| [pwm_id] |[pwm_value]| read specific pwm value|
 | Get BIOS post code| 0x34 | 0x73 | - | [post code]||
 | Get firmware version | 0x34 | 0x0b | [fw_type] | [major] [minor] | fw_type:<br> 00h - BIOS<br>01h - CPLD<br>02h - BMC<br>03h - PSU |
 | Get GPIO status| 0x30 | 0xE1 | [pin_number] | [direction] [value]| return valid GPIO pin status, direction: 1=output, 0=input|
@@ -26,16 +27,19 @@ Please include the recipe **nuvoton-ipmi-oem** in the packagegroups and make the
 ### Manual change PWM value
 ```bash
 # enter manual mode to avoid PID control change pwm value
-$ ipmitool raw 0x34 0x90 0x1
+$ ipmitool raw 0x32 0x90 0x1
 
 # set pwm 4 value 0x64
-$ ipmitool raw 0x34 0x91 0x3 0x64
+$ ipmitool raw 0x32 0x91 0x3 0x64
  64
 # get pwm value from pwm 4
-$ ipmitool raw 0x34 0x92 0x3
+$ ipmitool raw 0x32 0x92 0x3
  64
 # exit manual mode
-$ ipmitool raw 0x34 0x90 0x0
+$ ipmitool raw 0x32 0x90 0x0
+# check we are in automatic mode
+$ ipmitool raw 0x32 0x89
+ 00
 ```
 
 ### Get BIOS post code

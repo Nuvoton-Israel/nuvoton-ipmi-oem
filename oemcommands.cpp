@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 */
-
 #include "oemcommands.hpp"
 
 #include <ipmid/api.hpp>
@@ -30,6 +29,13 @@ using namespace phosphor::logging;
 
 namespace nuvoton
 {
+ipmi::RspType<uint8_t> ipmiOEMGetPwmMode()
+{
+    uint8_t rc, value;
+    rc = pwm_control->getPwmMode(&value);
+    return ipmi::response(rc, value);
+}
+
 ipmi::RspType<> ipmiOEMSetManualPwm(uint8_t enabled)
 {
     uint8_t rc;
@@ -223,16 +229,20 @@ static void registerOEMFunctions(void)
 
     nuvoton::createPwmControl();
 
+    // <Get Manual PWM command>
+    registerHandler(prioOemBase, netFnOemTwo, nuvoton::fan::cmdGetPwmMode,
+                    Privilege::Callback, nuvoton::ipmiOEMGetPwmMode);
+
     // <Set Manual PWM command>
-    registerHandler(prioOemBase, netFnOemThree, nuvoton::fan::cmdSetManualPwm,
+    registerHandler(prioOemBase, netFnOemTwo, nuvoton::fan::cmdSetManualPwm,
                     Privilege::Callback, nuvoton::ipmiOEMSetManualPwm);
 
     // <Get PWM value command>
-    registerHandler(prioOemBase, netFnOemThree, nuvoton::fan::cmdGetPwm,
+    registerHandler(prioOemBase, netFnOemTwo, nuvoton::fan::cmdGetPwm,
                     Privilege::Callback, nuvoton::ipmiOEMGetPwm);
 
-    // <Set PWM value  command>
-    registerHandler(prioOemBase, netFnOemThree, nuvoton::fan::cmdSetPwm,
+    // <Set PWM value command>
+    registerHandler(prioOemBase, netFnOemTwo, nuvoton::fan::cmdSetPwm,
                     Privilege::Callback, nuvoton::ipmiOEMSetPwm);
 
     // Get BIOS post code
