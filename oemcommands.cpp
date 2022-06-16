@@ -17,11 +17,19 @@
 
 #include <ipmid/api.hpp>
 #include <phosphor-logging/log.hpp>
+#include <xyz/openbmc_project/Software/Activation/server.hpp>
 #include <xyz/openbmc_project/Software/Version/server.hpp>
 
 static constexpr auto softwareRoot = "/xyz/openbmc_project/software";
+static constexpr auto biosObj = "/xyz/openbmc_project/software/bios_active";
 static constexpr auto versionIntf = "xyz.openbmc_project.Software.Version";
+static constexpr auto redundancyIntf =
+    "xyz.openbmc_project.Software.RedundancyPriority";
+static constexpr auto activationIntf =
+    "xyz.openbmc_project.Software.Activation";
 using Version = sdbusplus::xyz::openbmc_project::Software::server::Version;
+using Activation =
+    sdbusplus::xyz::openbmc_project::Software::server::Activation;
 
 namespace ipmi
 {
@@ -68,9 +76,10 @@ ipmi::RspType<uint8_t> ipmiOEMGetPostCode(ipmi::Context::ptr& ctx)
 
     try
     {
-        auto method = conn->new_method_call(
-            "xyz.openbmc_project.State.Boot.Raw", "/xyz/openbmc_project/state/boot/raw0",
-            "org.freedesktop.DBus.Properties", "Get");
+        auto method =
+            conn->new_method_call("xyz.openbmc_project.State.Boot.Raw",
+                                  "/xyz/openbmc_project/state/boot/raw0",
+                                  "org.freedesktop.DBus.Properties", "Get");
 
         method.append("xyz.openbmc_project.State.Boot.Raw", "Value");
 
@@ -78,7 +87,8 @@ ipmi::RspType<uint8_t> ipmiOEMGetPostCode(ipmi::Context::ptr& ctx)
         std::variant<postcode_t> postCode;
         reply.read(postCode);
 
-        return ipmi::responseSuccess(std::get<0>(std::get<postcode_t>(postCode)));
+        return ipmi::responseSuccess(
+            std::get<0>(std::get<postcode_t>(postCode)));
     }
     catch (std::exception& e)
     {
@@ -119,16 +129,15 @@ int convertVersion(std::string s, Revision& rev)
                 token = token.substr(location + 1);
             }
         }
-
-    } else
+    }
+    else
         return -1;
 
     return 0;
 }
 
-std::string getBMCVersionInfo(ipmi::Context::ptr& ctx)
+int getBMCVersionInfo(ipmi::Context::ptr& ctx, std::string& ver)
 {
-    std::string revision{};
     ipmi::ObjectTree objectTree;
 
     try
@@ -141,6 +150,7 @@ std::string getBMCVersionInfo(ipmi::Context::ptr& ctx)
         log<level::ERR>("Failed to fetch software object from dbus",
                         entry("INTERFACE=%s", versionIntf),
                         entry("ERRMSG=%s", e.what()));
+        return -1;
     }
 
     auto objectFound = false;
@@ -151,21 +161,34 @@ std::string getBMCVersionInfo(ipmi::Context::ptr& ctx)
         auto objValueTree =
             ipmi::getManagedObjects(*ctx->bus, service, softwareRoot);
 
+        auto minPriority = 0xFF;
         for (const auto& objIter : objValueTree)
         {
             try
             {
                 auto& intfMap = objIter.second;
+                auto& redundancyPriorityProps = intfMap.at(redundancyIntf);
                 auto& versionProps = intfMap.at(versionIntf);
+                auto& activationProps = intfMap.at(activationIntf);
+                auto priority =
+                    std::get<uint8_t>(redundancyPriorityProps.at("Priority"));
                 auto purpose =
                     std::get<std::string>(versionProps.at("Purpose"));
+                auto activation =
+                    std::get<std::string>(activationProps.at("Activation"));
                 auto version =
                     std::get<std::string>(versionProps.at("Version"));
-                if (Version::convertVersionPurposeFromString(purpose) ==
-                     Version::VersionPurpose::BMC)
+                if ((Version::convertVersionPurposeFromString(purpose) ==
+                     Version::VersionPurpose::BMC) &&
+                    (Activation::convertActivationsFromString(activation) ==
+                     Activation::Activations::Active))
                 {
+                    if (priority < minPriority)
+                    {
+                        minPriority = priority;
                         objectFound = true;
-                        revision = std::move(version);
+                        ver = std::move(version);
+                    }
                 }
             }
             catch (const std::exception& e)
@@ -178,18 +201,36 @@ std::string getBMCVersionInfo(ipmi::Context::ptr& ctx)
     if (!objectFound)
     {
         log<level::ERR>("Could not found an BMC software Object");
+        return -1;
     }
 
-    return revision;
+    return 0;
 }
 
-ipmi::RspType<uint8_t, // major
-              uint8_t  // minor
-          >
-      ipmiOEMGetFirmwareVersion(ipmi::Context::ptr ctx, uint8_t type)
+int getBIOSVersionInfo(ipmi::Context::ptr& ctx, std::string& ver)
 {
-    int r;
-    Revision rev = {0};
+    // read software manager object first
+    auto service = ipmi::getService(*ctx->bus, versionIntf, biosObj);
+    try
+    {
+        auto objProperty = ipmi::getDbusProperty(*ctx->bus, service, biosObj,
+                                                 versionIntf, "Version");
+        auto version = std::get<std::string>(objProperty);
+        ver = std::move(version);
+    }
+    catch (const sdbusplus::exception::exception& e)
+    {
+        log<level::ERR>("Failed to fetch BIOS object from dbus",
+                        entry("ERRMSG=%s", e.what()));
+        return -1;
+    }
+    return 0;
+}
+
+ipmi::RspType<std::string> ipmiOEMGetFirmwareVersion(ipmi::Context::ptr ctx,
+                                                     uint8_t type)
+{
+    int res = 0;
     std::string version{};
 
     log<level::INFO>("ipmiOEMGetFirmwareVersion");
@@ -197,21 +238,23 @@ ipmi::RspType<uint8_t, // major
     switch (type)
     {
         case ipmi::nuvoton::FirmwareType::BMC:
-            version = getBMCVersionInfo(ctx);
+            res = getBMCVersionInfo(ctx, version);
             break;
-
+        case ipmi::nuvoton::FirmwareType::BIOS:
+            res = getBIOSVersionInfo(ctx, version);
+            break;
+        // TODO: wait for implement
+        case ipmi::nuvoton::FirmwareType::CPLD:
+        case ipmi::nuvoton::FirmwareType::PSU:
+            return ipmi::responseDestinationUnavailable();
         default:
             log<level::ERR>("GetFirmwareVersion: invalid type");
-            return ipmi::responseUnspecifiedError();
+            return ipmi::responseParmOutOfRange();
     }
-    r = convertVersion(version, rev);
-    if (r < 0)
-    {
-        log<level::INFO>("convertVersion error");
+    if (res)
         return ipmi::responseUnspecifiedError();
-    }
 
-    return ipmi::responseSuccess(rev.major, rev.minor);
+    return ipmi::responseSuccess(version);
 }
 
 ipmi::RspType<uint8_t, uint8_t> ipmiOEMGetGpio(uint8_t pinNum)
