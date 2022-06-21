@@ -227,8 +227,8 @@ int getBIOSVersionInfo(ipmi::Context::ptr& ctx, std::string& ver)
     return 0;
 }
 
-ipmi::RspType<std::string> ipmiOEMGetFirmwareVersion(ipmi::Context::ptr ctx,
-                                                     uint8_t type)
+ipmi::RspType<std::vector<char>>
+    ipmiOEMGetFirmwareVersion(ipmi::Context::ptr ctx, uint8_t type)
 {
     int res = 0;
     std::string version{};
@@ -237,16 +237,21 @@ ipmi::RspType<std::string> ipmiOEMGetFirmwareVersion(ipmi::Context::ptr ctx,
 
     switch (type)
     {
-        case ipmi::nuvoton::FirmwareType::BMC:
+        case as_int(FirmwareType::BMC):
             res = getBMCVersionInfo(ctx, version);
             break;
-        case ipmi::nuvoton::FirmwareType::BIOS:
+        case as_int(FirmwareType::BIOS):
             res = getBIOSVersionInfo(ctx, version);
             break;
         // TODO: wait for implement
-        case ipmi::nuvoton::FirmwareType::CPLD:
-        case ipmi::nuvoton::FirmwareType::PSU:
-            return ipmi::responseDestinationUnavailable();
+        case as_int(FirmwareType::CPLD):
+        case as_int(FirmwareType::SCM_CPLD):
+            res = cpld::getCpldVersionInfo(ctx, version, type);
+            //return ipmi::responseDestinationUnavailable();
+            break;
+        case as_int(FirmwareType::PSU):
+            res = psu::getPsuVersionInfo(ctx, version);
+            break;
         default:
             log<level::ERR>("GetFirmwareVersion: invalid type");
             return ipmi::responseParmOutOfRange();
@@ -254,12 +259,39 @@ ipmi::RspType<std::string> ipmiOEMGetFirmwareVersion(ipmi::Context::ptr ctx,
     if (res)
         return ipmi::responseUnspecifiedError();
 
-    return ipmi::responseSuccess(version);
+    // convert string to vector<char> to avoid byte count
+    std::vector<char> v(version.length());
+    std::copy(version.begin(), version.end(), v.begin());
+
+    return ipmi::responseSuccess(v);
 }
 
 ipmi::RspType<uint8_t, uint8_t> ipmiOEMGetGpio(uint8_t pinNum)
 {
     return ipmiOEMGetGpioStatus(pinNum);
+}
+
+ipmi::RspType<> ipmiFwUpdate(uint8_t target, uint8_t region, uint8_t action,
+                             std::optional<std::vector<uint8_t>> image)
+{
+    std::string img;
+    std::string msg;
+    // convert std::vector<uint8_t> to std::string
+    if (image.has_value())
+    {
+        auto image_bytes = image.value();
+        img = std::string(image_bytes.begin(), image_bytes.end());
+    }
+    msg = "target: " + std::to_string(target) +
+          ", region: " + std::to_string(region) +
+          ", action:" + std::to_string(action);
+    log<level::INFO>(msg.c_str());
+    switch (target)
+    {
+        case as_int(FirmwareTarget::PSU):
+            return ipmiOemPsuFwUpdate(region, action, img);
+    }
+    return ipmi::responseUnspecifiedError();
 }
 
 } // namespace nuvoton
@@ -299,6 +331,10 @@ static void registerOEMFunctions(void)
     // <Get GPIO status command>
     registerHandler(prioOemBase, netFnOemOne, nuvoton::cmdGetGpioStatus,
                     Privilege::User, nuvoton::ipmiOEMGetGpio);
+
+    // <OEM firmware update command>
+    registerHandler(prioOemBase, netFnOemFive, nuvoton::cmdFirmwareUpdate,
+                    Privilege::User, nuvoton::ipmiFwUpdate);
 }
 
 } // namespace ipmi
