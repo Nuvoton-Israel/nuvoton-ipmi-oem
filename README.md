@@ -20,7 +20,7 @@ Please include the recipe **nuvoton-ipmi-oem** in the packagegroups and make the
 | Set PWM |0x32| 0x91| [pwm_id] [value] | [set_value]| set specific pwm with value 0x0 ~ 0xff|
 | Read PWM |0x32| 0x92| [pwm_id] |[pwm_value]| read specific pwm value|
 | Get BIOS post code| 0x34 | 0x73 | - | [post code]||
-| Get firmware version | 0x34 | 0x0b | [fw_type] | [bytes length] [version] | fw_type:<br> 00h - BIOS<br>01h - CPLD<br>02h - BMC<br>03h - PSU<br/>Return data: first byte is length of version string, from second to final byte are version string presented as ASCII hex |
+| Get firmware version | 0x34 | 0x0b | [fw_type] | [bytes length] [version] | fw_type:<br> 00h - BIOS<br>01h - CPLD<br>02h - BMC<br>03h - PSU<br/>Return data: version string presented as ASCII hex |
 | Get GPIO status| 0x30 | 0xE1 | [pin_number] | [direction] [value]| return valid GPIO pin status, direction: 1=output, 0=input|
 
 ## Exmples
@@ -53,13 +53,15 @@ root@evb-npcm845:~# ipmitool raw 0x34 0x73
 ```bash
 # BMC version is 2.12.0-dev-1361-gb4e63f50d-dirty
 root@evb-npcm845:~# ipmitool raw 0x34 0x0b 0x02
- 20 32 2e 31 32 2e 30 2d 64 65 76 2d 31 33 36 31
- 2d 67 62 34 65 36 33 66 35 30 64 2d 64 69 72 74
- 79
+ 32 2e 31 31 2e 30 2d 31 30 32 2d 67 63 31 34 35
+ 33 30 37 63 64 2d 64 69 72 74 79
 # BIOS version is C2195.0.BS.1A06.GN.3
 root@evb-npcm845:~# ipmitool raw 0x34 0x0b 0x00
- 14 43 32 31 39 35 2e 30 2e 42 53 2e 31 41 30 36
- 2e 47 4e 2e 33
+ 43 32 31 39 35 2e 30 2e 42 53 2e 31 41 30 36 2e
+ 47 4e 2e 33
+ # PSU version is 14133800
+ root@scm-npcm845:~# ipmitool raw 0x34 0x0b 0x03
+ 31 34 31 33 31 38 30 30
 ```
 
 # Get GPIO status
