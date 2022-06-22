@@ -15,9 +15,9 @@ Please include the recipe **nuvoton-ipmi-oem** in the packagegroups and make the
 
 |Name  | NetFn | Commmand | Requst Data [byte]|  Return Data| Description |
 |------|---|---|---------|-----------|----------------|
-| Set PID manual mode for all zones | 0x34| 0x90| [enabled]| - | enabled set 0x01 to enter manaul mode; 0x0 to exit manual mode for all PID zones|
+| Set PID manual mode for all zones | 0x32| 0x90| [enabled]| - | enabled set 0x01 to enter manaul mode; 0x0 to exit manual mode for all PID zones|
 | Get PID manual mode |0x32| 0x89| - |[mode]| 0:automatic mode, 1: manual mode|
-| Set PWM |0x32| 0x91| [pwm_id] [value] | [set_value]| set specific pwm with value 0x0 ~ 0xff|
+| Set PWM |0x32| 0x91| [pwm_id] [value] | [set_value]| set specific pwm with value in range: 0x0 ~ 0x64|
 | Read PWM |0x32| 0x92| [pwm_id] |[pwm_value]| read specific pwm value|
 | Get BIOS post code| 0x34 | 0x73 | - | [post code]||
 | Get firmware version | 0x34 | 0x0b | [fw_type] | [bytes length] [version] | fw_type:<br> 00h - BIOS<br>01h - CPLD<br>02h - BMC<br>03h - PSU<br/>Return data: version string presented as ASCII hex |

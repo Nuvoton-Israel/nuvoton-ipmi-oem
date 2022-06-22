@@ -101,9 +101,12 @@ uint8_t double_to_uint8(double input)
     uint8_t output;
     char temp[8];
 
-    std::snprintf(temp, 8, "%.0f", input);
+    std::snprintf(temp, 8, "%.0f", std::round(input));
     temp[7] = 0x00;
     std::sscanf(temp, "%hhu", &output);
+    std::string msg =
+        "convert " + std::to_string(input) + " to " + std::to_string(output);
+    log<level::DEBUG>(msg.c_str());
     return output;
 }
 
@@ -140,6 +143,8 @@ uint8_t IpmiPwmcontrol::setPwmProperty(const std::string& path,
  *   xyz.openbmc_project.Control.FanPwm    interface -     -
  *   .Target                               property  t     100
  *
+ * 4. for the MS PWM spec, we should set target value as percentage,
+ *    so map the value to 0~255
  * @param instance the pwm id
  * @param value the value reference, the PWM data will return here
  * @return uint8_t IPMI status code
@@ -169,6 +174,8 @@ uint8_t IpmiPwmcontrol::getPwmValue(uint8_t instance, uint8_t* value)
             ipmi::getDbusProperty(*getSdBus(), _fan_service, fullPath,
                                   FAN_CTRL_PWM_INTF, FAN_PWM_PROPERTY);
         reading = std::get<uint64_t>(propValue);
+        double convert_value = reading * 100.0 / 255;
+        *value = double_to_uint8(convert_value);
     }
     catch (const sdbusplus::exception::exception& ex)
     {
@@ -176,12 +183,19 @@ uint8_t IpmiPwmcontrol::getPwmValue(uint8_t instance, uint8_t* value)
         log<level::ERR>(msg.c_str());
         return IPMI_CC_INVALID;
     }
-    *value = (uint8_t)reading;
     return IPMI_CC_OK;
 }
 
-uint8_t IpmiPwmcontrol::setPwmValue(uint8_t instance, uint8_t value)
+uint8_t IpmiPwmcontrol::setPwmValue(uint8_t instance, uint8_t percentage)
 {
+    double convert_value;
+    uint8_t value;
+    if (percentage > 0x64)
+    {
+        return IPMI_CC_PARM_OUT_OF_RANGE;
+    }
+    convert_value = (percentage * 255.0) / 100;
+    value = double_to_uint8(convert_value);
     switch (getFanServiceType())
     {
         case fanServiceHwmon:
