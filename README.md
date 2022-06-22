@@ -19,8 +19,8 @@ Please include the recipe **nuvoton-ipmi-oem** in the packagegroups and make the
 | Get PID manual mode |0x32| 0x89| - |[mode]| 0:automatic mode, 1: manual mode|
 | Set PWM |0x32| 0x91| [pwm_id] [value] | [set_value]| set specific pwm with value in range: 0x0 ~ 0x64|
 | Read PWM |0x32| 0x92| [pwm_id] |[pwm_value]| read specific pwm value|
-| Get BIOS post code| 0x34 | 0x73 | - | [post code]||
-| Get firmware version | 0x34 | 0x0b | [fw_type] | [bytes length] [version] | fw_type:<br> 00h - BIOS<br>01h - CPLD<br>02h - BMC<br>03h - PSU<br/>Return data: version string presented as ASCII hex |
+| Get BIOS post code| 0x32 | 0x73 | - | [post code]||
+| Get firmware version | 0x38 | 0x0b | [fw_type] | [bytes length] [version] | fw_type:<br> 00h - BIOS<br>01h - CPLD<br>02h - BMC<br>03h - PSU<br/>Return data: version string presented as ASCII hex |
 | Get GPIO status| 0x30 | 0xE1 | [pin_number] | [direction] [value]| return valid GPIO pin status, direction: 1=output, 0=input|
 
 ## Exmples

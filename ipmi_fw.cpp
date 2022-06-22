@@ -300,7 +300,7 @@ namespace cpld
 {
 static const std::string CPLD = "CPLD";
 static const std::string SCM_CPLD = "DC-SCM CPLD";
-static constexpr auto FW_INFO_LENGTH = 2;
+static constexpr auto FW_INFO_LENGTH = 1;
 
 // TBD, we have no CPLD spec yet
 int read_clpd_version(int i2cdev, u_int16_t address, std::string& ver)
@@ -315,7 +315,7 @@ int read_clpd_version(int i2cdev, u_int16_t address, std::string& ver)
 
     i2cmsg[0].addr = address;
     i2cmsg[0].flags = 0x00; // write
-    i2cmsg[0].len = 1;
+    i2cmsg[0].len = 1;      // CPLD version cmd: 0x0
     i2cmsg[0].buf = buf;
 
     i2cmsg[1].addr = address;
@@ -333,7 +333,8 @@ int read_clpd_version(int i2cdev, u_int16_t address, std::string& ver)
         return ret;
     }
     // cast uint8 to char to build string
-    ver = std::string(reinterpret_cast<const char*>(buf), FW_INFO_LENGTH);
+    //ver = std::string(reinterpret_cast<const char*>(buf), FW_INFO_LENGTH);
+    ver = std::to_string(buf[0]);
 
     return 0;
 }

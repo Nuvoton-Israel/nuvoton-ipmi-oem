@@ -247,7 +247,7 @@ ipmi::RspType<std::vector<char>>
         case as_int(FirmwareType::CPLD):
         case as_int(FirmwareType::SCM_CPLD):
             res = cpld::getCpldVersionInfo(ctx, version, type);
-            //return ipmi::responseDestinationUnavailable();
+            // return ipmi::responseDestinationUnavailable();
             break;
         case as_int(FirmwareType::PSU):
             res = psu::getPsuVersionInfo(ctx, version);
@@ -321,11 +321,11 @@ static void registerOEMFunctions(void)
                     Privilege::Callback, nuvoton::ipmiOEMSetPwm);
 
     // Get BIOS post code
-    registerHandler(prioOemBase, netFnOemThree, nuvoton::cmdGetPostCode,
+    registerHandler(prioOemBase, netFnOemTwo, nuvoton::cmdGetPostCode,
                     Privilege::User, nuvoton::ipmiOEMGetPostCode);
 
     // Get firmware version
-    registerHandler(prioOemBase, netFnOemThree, nuvoton::cmdGetFimwareVer,
+    registerHandler(prioOemBase, netFnOemFive, nuvoton::cmdGetFimwareVer,
                     Privilege::User, nuvoton::ipmiOEMGetFirmwareVersion);
 
     // <Get GPIO status command>
