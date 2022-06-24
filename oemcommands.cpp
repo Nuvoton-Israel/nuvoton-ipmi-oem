@@ -98,43 +98,77 @@ ipmi::RspType<uint8_t> ipmiOEMGetPostCode(ipmi::Context::ptr& ctx)
 
     return ipmi::responseSuccess();
 }
-
-int convertVersion(std::string s, Revision& rev)
+namespace postcode
 {
-    std::string token;
+static constexpr auto postCodeIntf = "xyz.openbmc_project.State.Boot.PostCode";
+static constexpr auto postCodeObj = "/xyz/openbmc_project/State/Boot/PostCode0";
+static constexpr auto MAX_CODE_BYTES = 240;
+using postcode_t = std::tuple<uint64_t, std::vector<uint8_t>>;
 
-    auto location = s.find_first_of('v');
-    if (location != std::string::npos)
+int getPostCodes(uint16_t index, std::string service,
+                 std::vector<uint8_t>& codes)
+{
+    auto conn = getSdBus();
+    std::vector<postcode_t> post_codes;
+    try
     {
-        s = s.substr(location + 1);
+        auto method = conn->new_method_call(service.c_str(), postCodeObj,
+                                            postCodeIntf, "GetPostCodes");
+        method.append(index);
+        auto reply = conn->call(method);
+        reply.read(post_codes);
     }
-
-    if (!s.empty())
+    catch (const std::exception& e)
     {
-        location = s.find_first_of(".");
-        if (location != std::string::npos)
-        {
-            rev.major =
-                static_cast<char>(std::stoi(s.substr(0, location), 0, 10));
-            token = s.substr(location + 1);
-        }
-
-        if (!token.empty())
-        {
-            location = token.find_first_of(".-");
-            if (location != std::string::npos)
-            {
-                rev.minor = static_cast<char>(
-                    std::stoi(token.substr(0, location), 0, 10));
-                token = token.substr(location + 1);
-            }
-        }
-    }
-    else
+        log<level::ERR>(e.what());
         return -1;
-
+    }
+    if (post_codes.empty())
+    {
+        return 0;
+    }
+    // convert a(tay) to at, we only need the code and ignore desc
+    std::transform(post_codes.begin(), post_codes.end(),
+                   std::back_inserter(codes),
+                   [](const auto& pc) { return std::get<0>(pc); });
+    // according to spec we only can send 240 bytes, remove the front data
+    if (codes.size() > MAX_CODE_BYTES)
+    {
+        size_t rm_count = codes.size() - MAX_CODE_BYTES;
+        codes.erase(codes.begin(), codes.begin() + rm_count);
+    }
     return 0;
 }
+// if previous == 0, use current post code
+ipmi::RspType<std::vector<uint8_t>> ipmiOEMGetPostCodes(uint8_t previous)
+{
+    std::string msg, service;
+    std::vector<uint8_t> codes;
+    int ret;
+    if (previous > 1)
+    {
+        return ipmi::responseParmOutOfRange();
+    }
+    try
+    {
+        service = ipmi::getService(*getSdBus(), postCodeIntf, postCodeObj);
+    }
+    catch (const std::exception& e)
+    {
+        log<level::ERR>("Cannot get post code manager service");
+        return ipmi::responseUnspecifiedError();
+    }
+
+    // if previous post code not exist, we will get empty codes, so we don't
+    // need handle index error
+    ret = getPostCodes(previous + 1, service, codes);
+    if (ret)
+    {
+        return ipmi::responseUnspecifiedError();
+    }
+    return ipmi::responseSuccess(codes);
+}
+} // namespace postcode
 
 int getBMCVersionInfo(ipmi::Context::ptr& ctx, std::string& ver)
 {
@@ -322,7 +356,7 @@ static void registerOEMFunctions(void)
 
     // Get BIOS post code
     registerHandler(prioOemBase, netFnOemTwo, nuvoton::cmdGetPostCode,
-                    Privilege::User, nuvoton::ipmiOEMGetPostCode);
+                    Privilege::User, nuvoton::postcode::ipmiOEMGetPostCodes);
 
     // Get firmware version
     registerHandler(prioOemBase, netFnOemFive, nuvoton::cmdGetFimwareVer,
