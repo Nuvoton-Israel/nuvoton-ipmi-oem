@@ -23,15 +23,14 @@ using Json = nlohmann::json;
 using InternalFailure =
     sdbusplus::xyz::openbmc_project::Common::Error::InternalFailure;
 
-static constexpr auto psu_update = "/usr/bin/update_psu";
 static constexpr auto PSUImagePath = "/var/wcs/home/";
 // TODO: use entity config instead of define a new configuration
 static constexpr auto FwConfig = "/usr/share/ipmi-providers/fw.json";
 static constexpr auto FwBusType = "bus";
 static constexpr auto FwAddressType = "address";
-static const std::string space = " ";
-// static std::string PSUBus = "7";
-// static std::string PSUAddress = "0x58";
+static constexpr auto FwWriteLength = "write_length";
+static constexpr auto FwReadLength = "read_lngth";
+static constexpr auto FwCommand = "command";
 static constexpr auto I2C_DEV = "/dev/i2c-";
 
 Json parseJSONConfig(const std::string& configFile)
@@ -57,6 +56,9 @@ typedef struct
 {
     std::string bus;
     uint16_t address;
+    uint8_t wr_len;
+    uint8_t rd_len;
+    std::vector<uint8_t> wr_cmds;
 } FW_CONFIG;
 
 int readFwConfig(std::string target, FW_CONFIG& fw_config)
@@ -71,8 +73,14 @@ int readFwConfig(std::string target, FW_CONFIG& fw_config)
             bus = (*config).value(FwBusType, bus);
             address = (*config).value(FwAddressType, address);
             fw_config.address = (uint16_t)std::stoul(address, nullptr, 16);
-            ;
             fw_config.bus = bus;
+            fw_config.wr_len = (*config).value(FwWriteLength, fw_config.wr_len);
+            fw_config.rd_len = (*config).value(FwReadLength, fw_config.rd_len);
+            auto cmd = (*config).find(FwCommand);
+            if (cmd != (*config).end())
+            {
+                fw_config.wr_cmds = (*cmd).get<std::vector<uint8_t>>();
+            }
         }
     }
     catch (const std::exception& e)
@@ -81,6 +89,15 @@ int readFwConfig(std::string target, FW_CONFIG& fw_config)
         return -1;
     }
     msg = target + " bus: " + bus + ", address: " + address;
+    msg += ", w:" + std::to_string(fw_config.wr_len) +
+           ",r:" + std::to_string(fw_config.rd_len);
+    log<level::INFO>(msg.c_str());
+    msg = "cmd";
+    for (auto data = fw_config.wr_cmds.begin(); data != fw_config.wr_cmds.end();
+         data++)
+    {
+        msg += " " + std::to_string(*data);
+    }
     log<level::INFO>(msg.c_str());
     return 0;
 }
@@ -90,27 +107,6 @@ ipmi::RspType<> psuFwUpdate(std::string image)
 {
     std::string msg = "psuFwUpdate: " + image;
     log<level::INFO>(msg.c_str());
-    /*if (readFwConfig() != 0)
-    {
-        log<level::ERR>("Cannot read PSU config to get bus and address");
-        return ipmi::responseUnspecifiedError();
-    }
-    std::string cmd = psu_update + space + PSUBus + space + PSUAddress + space +
-                      std::string(PSUImagePath) + image;
-    // exec may cause timeout, use service to implement
-    // ipmi_dbus_sendrecv: failed to send dbus message (Connection timed out)
-    try
-    {
-        log<level::INFO>(cmd.c_str());
-        std::string result = exec(cmd.c_str());
-        log<level::INFO>(result.c_str());
-    }
-    catch (const std::exception& e)
-    {
-        log<level::ERR>(e.what());
-        return ipmi::responseUnspecifiedError();
-    }
-    return ipmi::responseSuccess();*/
     return ipmi::responseCmdFailFwUpdMode();
 }
 
@@ -300,27 +296,35 @@ namespace cpld
 {
 static const std::string CPLD = "CPLD";
 static const std::string SCM_CPLD = "DC-SCM CPLD";
-static constexpr auto FW_INFO_LENGTH = 1;
+static constexpr auto CPLD_BUF_MAX = 8;
+static const std::vector<uint8_t> CPLD_VER_CMD = {0xC0, 0x0, 0x0, 0x0};
+static const std::vector<uint8_t> SCM_CPLD_VER_CMD = {0x0};
 
-// TBD, we have no CPLD spec yet
-int read_clpd_version(int i2cdev, u_int16_t address, std::string& ver)
+int read_clpd_version(int i2cdev, FW_CONFIG cfg, std::string& ver)
 {
     struct i2c_rdwr_ioctl_data i2c_rdwr;
     struct i2c_msg i2cmsg[2];
-    uint8_t buf[4];
+    uint8_t buf[CPLD_BUF_MAX];
     int ret;
     std::string msg;
+    if (cfg.wr_len > CPLD_BUF_MAX || cfg.rd_len > CPLD_BUF_MAX ||
+        cfg.wr_cmds.size() > CPLD_BUF_MAX)
+    {
+        log<level::ERR>("CPLD data out of buffer");
+        return -1;
+    }
 
-    buf[0] = 0x0;
+    // set up CPLD version command
+    std::copy(cfg.wr_cmds.begin(), cfg.wr_cmds.end(), buf);
 
-    i2cmsg[0].addr = address;
+    i2cmsg[0].addr = cfg.address;
     i2cmsg[0].flags = 0x00; // write
-    i2cmsg[0].len = 1;      // CPLD version cmd: 0x0
+    i2cmsg[0].len = cfg.wr_len;
     i2cmsg[0].buf = buf;
 
-    i2cmsg[1].addr = address;
+    i2cmsg[1].addr = cfg.address;
     i2cmsg[1].flags = I2C_M_RD; // read
-    i2cmsg[1].len = FW_INFO_LENGTH;
+    i2cmsg[1].len = cfg.rd_len;
     i2cmsg[1].buf = buf;
 
     i2c_rdwr.msgs = i2cmsg;
@@ -333,8 +337,8 @@ int read_clpd_version(int i2cdev, u_int16_t address, std::string& ver)
         return ret;
     }
     // cast uint8 to char to build string
-    //ver = std::string(reinterpret_cast<const char*>(buf), FW_INFO_LENGTH);
-    ver = std::to_string(buf[0]);
+    ver = std::string(reinterpret_cast<const char*>(buf), cfg.rd_len);
+    // ver = std::to_string(buf[0]);
 
     return 0;
 }
@@ -346,17 +350,28 @@ int getCpldVersionInfo(ipmi::Context::ptr& ctx, std::string& ver,
     int ret = -1;
     FW_CONFIG config;
     if (fw_type == as_int(FirmwareType::CPLD))
+    {
         cfg_typename = CPLD;
-    else
+        config.wr_cmds = CPLD_VER_CMD;
+        config.wr_len = 4;
+        config.rd_len = 4;
+    }
+    else if (fw_type == as_int(FirmwareType::SCM_CPLD))
+    {
         cfg_typename = SCM_CPLD;
-
+        config.wr_cmds = SCM_CPLD_VER_CMD;
+        config.wr_len = 1;
+        config.rd_len = 1;
+    }
+    else
+        return ret;
     if (readFwConfig(cfg_typename, config) != 0)
         return ret;
 
     int i2cdev = fw_open_i2c(config.bus);
     if (i2cdev > 0)
     {
-        ret = read_clpd_version(i2cdev, config.address, ver);
+        ret = read_clpd_version(i2cdev, config, ver);
         close(i2cdev);
     }
     return ret;
