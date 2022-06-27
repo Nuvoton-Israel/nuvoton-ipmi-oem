@@ -19,7 +19,7 @@ Please include the recipe **nuvoton-ipmi-oem** in the packagegroups and make the
 | Get PID manual mode |0x32| 0x89| - |[mode]| 0:automatic mode, 1: manual mode|
 | Set PWM |0x32| 0x91| [pwm_id] [value] | [set_value]| set specific pwm with value in range: 0x0 ~ 0x64|
 | Read PWM |0x32| 0x92| [pwm_id] |[pwm_value]| read specific pwm value|
-| Get BIOS post code| 0x32 | 0x73 | - | [post code]||
+| Get BIOS post code| 0x32 | 0x73 | [previous] | [post code]| previous:0, get current POST code; previous:1, get previous POST code|
 | Get firmware version | 0x38 | 0x0b | [fw_type] | [bytes length] [version] | fw_type:<br> 00h - BIOS<br>01h - CPLD<br>02h - BMC<br>03h - PSU<br/>Return data: version string presented as ASCII hex |
 | Get GPIO status| 0x30 | 0xE1 | [pin_number] | [direction] [value]| return valid GPIO pin status, direction: 1=output, 0=input|
 
@@ -44,8 +44,22 @@ $ ipmitool raw 0x32 0x89
 
 ### Get BIOS post code
 ```bash
-root@evb-npcm845:~# ipmitool raw 0x34 0x73
- 00
+root@scm-npcm845:~# ipmitool raw 0x32 0x73 0
+ 31 01 0c 92 93 96 b7 0c 00 90 92 91 01 0c 00 d2
+ 50 01 0c 00 00 14 15 50 01 0c 00 98 99 01 0c 00
+ 23 26 01 0c 08 d0 0c bb be 0c 00 94 95 b4 b7 0c
+ 00 c1 a7 a8 b5 d6 4f c8 01 0c 03 51 52 55 56 02
+ 0c c9 53 54 59 5a 57 58 ca c4 cd fd b0 b2 b3 bb
+ e9 ea eb ec ed e9 ea eb ec ed ee ee 00 bc ff 04
+ 11 e9 ea eb ec ed e9 ea eb ec ed ee ee e9 ea eb
+ ec ed e9 ea eb ec ed e9 ea eb ec ed e9 ea eb ec
+ ed ee ee ee ee d1 15 50 e0 10 01 4f 41 43 40 47
+ 42 44 48 14 15 14 15 14 15 14 15 14 15 14 15 14
+ 15 14 15 14 15 14 15 14 15 14 15 14 15 14 15 14
+ 15 11 12 13 30 31 3e 3f 00 10 11 20 21 01 54 54
+ 3e 3f 21 14 94 00 22 50 14 15 14 15 14 15 14 15
+ 14 15 14 15 14 15 14 15 14 15 14 15 14 15 14 15
+ 51 e1 94 90 91 e0 54 52 53 54 33 32 3b 4f 60 61
 
 ```
 
@@ -59,13 +73,57 @@ root@evb-npcm845:~# ipmitool raw 0x34 0x0b 0x02
 root@evb-npcm845:~# ipmitool raw 0x34 0x0b 0x00
  43 32 31 39 35 2e 30 2e 42 53 2e 31 41 30 36 2e
  47 4e 2e 33
- # PSU version is 14133800
- root@scm-npcm845:~# ipmitool raw 0x34 0x0b 0x03
+# PSU version is 14133800
+root@scm-npcm845:~# ipmitool raw 0x34 0x0b 0x03
  31 34 31 33 31 38 30 30
+# CPLD version 
+root@scm-npcm845:~# ipmitool raw 0x38 0xb 0x1
+ 00 01 0e 04
+# SCM CPLD version
+root@scm-npcm845:~# ipmitool raw 0x38 0xb 0x7
+ 01
 ```
 
-# Get GPIO status
+### Get GPIO status
 ```bash
 root@evb-npcm845:~# ipmitool raw 0x30 0xE1 91
  01 00
+```
+
+## OEM version configuration
+For more flexible, we use a JSON configuration file to set the information for PSU, and CPLD
+I2C bus and address data.
+```json
+{
+  "PSU":
+  {
+    "bus":"7",
+    "address":"0x58"
+  },
+  "CPLD":
+  {
+    "bus":"5",
+    "address":"0x40",
+    "write_length":4,
+    "read_lngth":4,
+    "//":"[0xc0, 0x0, 0x0, 0x0]",
+    "command":[
+      192,
+      0,
+      0,
+      0
+    ]
+  },
+  "DC-SCM CPLD":
+  {
+    "bus":"15",
+    "address":"0x60",
+    "write_length":1,
+    "read_lngth":1,
+    "//":"[0x0]",
+    "command":[
+      0
+    ]
+  }
+}
 ```
