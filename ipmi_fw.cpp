@@ -7,8 +7,8 @@
 #include <fstream>
 #include <iostream>
 #include <ipmid/api.hpp>
+#include <ipmid/utils.hpp>
 #include <nlohmann/json.hpp>
-#include <optional>
 #include <phosphor-logging/elog-errors.hpp>
 #include <phosphor-logging/log.hpp>
 #include <stdexcept>
@@ -102,67 +102,6 @@ int readFwConfig(std::string target, FW_CONFIG& fw_config)
     return 0;
 }
 
-// TBD: wait for implement
-ipmi::RspType<> psuFwUpdate(std::string image)
-{
-    std::string msg = "psuFwUpdate: " + image;
-    log<level::INFO>(msg.c_str());
-    return ipmi::responseCmdFailFwUpdMode();
-}
-
-// TBD: wait for implement
-ipmi::RspType<> psuFwStatus(uint8_t region)
-{
-    log<level::INFO>("psuFwStatus");
-    return ipmi::responseCmdFailFwUpdMode();
-}
-
-// TBD: wait for implement
-ipmi::RspType<> psuFwAbort(uint8_t region)
-{
-    log<level::INFO>("psuFwAbort");
-    return ipmi::responseCmdFailFwUpdMode();
-}
-
-ipmi::RspType<> ipmiOemPsuFwUpdate(uint8_t region, uint8_t action,
-                                   std::string image)
-{
-    switch (action)
-    {
-        case as_int(FirmwareAction::ACTIVE):
-            return psuFwUpdate(image);
-        case as_int(FirmwareAction::STATUS):
-            return psuFwStatus(region);
-        case as_int(FirmwareAction::ABORT):
-            return psuFwAbort(region);
-        default:
-            return ipmi::responseUnspecifiedError();
-    }
-}
-
-std::string exec(const char* cmd)
-{
-    char buffer[128];
-    std::string result = "";
-    FILE* pipe = popen(cmd, "r");
-    if (!pipe)
-        throw std::runtime_error("popen() failed!");
-    try
-    {
-        while (fgets(buffer, sizeof buffer, pipe) != NULL)
-        {
-            result += buffer;
-        }
-    }
-    catch (...)
-    {
-        pclose(pipe);
-        throw;
-    }
-    pclose(pipe);
-    return result;
-}
-
 int fw_open_i2c(std::string i2c_bus)
 {
     std::string i2c_dev = I2C_DEV + i2c_bus;
@@ -177,56 +116,59 @@ int fw_open_i2c(std::string i2c_bus)
 
 namespace psu
 {
-static constexpr auto FW_INFO_LENGTH = 11;
+static constexpr auto FW_INFO_LENGTH = 10;
 static constexpr auto PSU_SERVICE = "psu_update.service";
 static constexpr auto SYSTEMD_BUSNAME = "org.freedesktop.systemd1";
 static constexpr auto SYSTEMD_PATH = "/org/freedesktop/systemd1";
 static constexpr auto SYSTEMD_INTERFACE = "org.freedesktop.systemd1.Manager";
+static constexpr auto MAX_DATA_BYTES = 240;
 
-struct FW_INFO
+int read_fw_info(std::string bus_id, uint16_t address, uint8_t image,
+                 std::string& ver, uint8_t* active)
 {
-    uint8_t length;
-    uint8_t active;
-    char revision[]; // unit8, for eaiser convert to string
-} __attribute__((packed));
-
-int read_fw_info(int i2cdev, int address, uint8_t image, std::string& ver,
-                 uint8_t* active)
-{
-    struct i2c_rdwr_ioctl_data i2c_rdwr;
-    struct i2c_msg i2cmsg[2];
-    uint8_t buf[32];
-    int ret;
-    std::string msg;
-
-    buf[0] = 0xEF;
-    buf[1] = 0x1;
-    buf[2] = image;
-
-    i2cmsg[0].addr = address;
-    i2cmsg[0].flags = 0x00; // write
-    i2cmsg[0].len = 3;
-    i2cmsg[0].buf = buf;
-
-    i2cmsg[1].addr = address;
-    i2cmsg[1].flags = I2C_M_RD; // read
-    i2cmsg[1].len = FW_INFO_LENGTH;
-    i2cmsg[1].buf = buf;
-
-    i2c_rdwr.msgs = i2cmsg;
-    i2c_rdwr.nmsgs = 2;
-    ret = ioctl(i2cdev, I2C_RDWR, &i2c_rdwr);
-    if (ret < 0)
+    std::string i2cBus = I2C_DEV + bus_id;
+    std::vector<uint8_t> cmdWrite = {0xEF, 0x01, image};
+    static std::vector<uint8_t> readBuf(FW_INFO_LENGTH);
+    ipmi::Cc ret = ipmi::i2cWriteRead(i2cBus, static_cast<uint8_t>(address),
+                                      cmdWrite, readBuf);
+    if (ret != ipmi::ccSuccess)
     {
-        msg = "read_fw_info: i2c err ret =" + std::to_string(ret);
-        log<level::ERR>(msg.c_str());
         return ret;
     }
-    auto info = reinterpret_cast<FW_INFO*>(buf);
-    ver = std::string(info->revision, info->length - 1);
-    *active = info->active;
+    /*
+    struct FW_INFO
+    {
+        uint8_t length;
+        uint8_t active;
+        uint8_t revision[];
+    } __attribute__((packed));
+    */
+    ver = std::string(readBuf.begin() + 2, readBuf.end());
+    *active = readBuf[1];
 
-    return 0;
+    return ret;
+}
+
+// TBD: wait for implement
+ipmi::RspType<uint8_t> psuFwUpdate(std::string image)
+{
+    std::string msg = "psuFwUpdate: " + image;
+    log<level::INFO>(msg.c_str());
+    return ipmi::responseCmdFailFwUpdMode();
+}
+
+// TBD: wait for implement
+ipmi::RspType<uint8_t> psuFwStatus(uint8_t region)
+{
+    log<level::INFO>("psuFwStatus");
+    return ipmi::responseCmdFailFwUpdMode();
+}
+
+// TBD: wait for implement
+ipmi::RspType<uint8_t> psuFwAbort(uint8_t region)
+{
+    log<level::INFO>("psuFwAbort");
+    return ipmi::responseCmdFailFwUpdMode();
 }
 
 int getPsuVersionInfo(ipmi::Context::ptr& ctx, std::string& ver)
@@ -243,34 +185,30 @@ int getPsuVersionInfo(ipmi::Context::ptr& ctx, std::string& ver)
     // get version from dbus first?
 
     // read PSU versions
-    int i2cdev = fw_open_i2c(config.bus);
-    if (i2cdev > 0)
+
+    // Read A image first
+    ret = psu::read_fw_info(config.bus, config.address, 0xA, rev, &active);
+    if (ret == 0 && active > 0)
     {
-        // Read A image first
-        ret = psu::read_fw_info(i2cdev, config.address, 0xA, rev, &active);
+        ver = rev;
+    }
+    else
+    {
+        // If A image is not active, read B image
+        ret = psu::read_fw_info(config.bus, config.address, 0xB, rev, &active);
         if (ret == 0 && active > 0)
         {
             ver = rev;
         }
+        // somthing goes wrong, A/B inactive
         else
         {
-            // If A image is not active, read B image
-            ret = psu::read_fw_info(i2cdev, config.address, 0xB, rev, &active);
-            if (ret == 0 && active > 0)
+            log<level::ERR>("Cannot get active image!");
+            if (ret == 0)
             {
-                ver = rev;
-            }
-            // somthing goes wrong, A/B inactive
-            else
-            {
-                log<level::ERR>("Cannot get active image!");
-                if (ret == 0)
-                {
-                    ret = -1;
-                }
+                ret = -1;
             }
         }
-        close(i2cdev);
     }
     return ret;
 }
@@ -290,6 +228,133 @@ void startflashPsu(sdbusplus::bus::bus& bus)
         elog<InternalFailure>();
     }
 }
+
+ipmi::RspType<uint8_t> ipmiOemPsuFwUpdate(uint8_t region, uint8_t action,
+                                          std::string image)
+{
+    switch (action)
+    {
+        case as_int(FirmwareAction::ACTIVE):
+            return psuFwUpdate(image);
+        case as_int(FirmwareAction::STATUS):
+            return psuFwStatus(region);
+        case as_int(FirmwareAction::ABORT):
+            return psuFwAbort(region);
+        default:
+            return ipmi::responseUnspecifiedError();
+    }
+}
+
+// TODO: implement check bus and address is allowed
+bool isCmdPmbusAllowed(uint8_t bus_id, uint8_t slaveAddr,
+                       std::vector<uint8_t>& writeData)
+{
+    return true;
+}
+
+/** @brief Perform PMBUS read/write command with specific phase
+ *
+ *  @param isPrivateBus -to indicate private bus usage
+ *  @param busId - bus id
+ *  @param channelNum - channel number
+ *  @param reserved - skip 1 bit
+ *  @param slaveAddr - slave address
+ *  @param readCount - number of bytes to be read, the maximum read count should
+ * be 240 bytes.
+ *  @param writeData - data to be written. This command should support 240 bytes
+ * of write data.
+ *
+ *  @returns IPMI completion code plus response data
+ *   - readData - i2c response data
+ *
+ * Note: additional Completion Code: 81h = Lost Arbitration 82h = Bus Error
+ *                                   83h = NAK on Write 84h = Truncated Read
+ */
+ipmi::RspType<std::vector<uint8_t>>
+    masterPhase(bool isPrivateBus, uint3_t busId, uint4_t channelNum,
+                bool reserved, uint7_t slaveAddr, uint8_t phase,
+                uint8_t readCount, std::vector<uint8_t> writeData)
+{
+    std::string msg =
+        "bus:" + std::to_string(static_cast<uint8_t>(busId)) +
+        ",address:" + std::to_string(static_cast<uint8_t>(slaveAddr)) +
+        ",phase:" + std::to_string(phase) +
+        ",read count:" + std::to_string(readCount);
+    log<level::INFO>(msg.c_str());
+    // normal check as master write read
+    if (reserved)
+    {
+        return ipmi::responseInvalidFieldRequest();
+    }
+    if (readCount > MAX_DATA_BYTES)
+    {
+        log<level::ERR>(
+            "Master phase write read command: Read count exceeds limit");
+        return ipmi::responseParmOutOfRange();
+    }
+    const size_t writeCount = writeData.size();
+    if (writeCount > MAX_DATA_BYTES)
+    {
+        log<level::ERR>(
+            "Master phase write read command: write data exceeds limit");
+        return ipmi::responseParmOutOfRange();
+    }
+    if (!readCount && !writeCount)
+    {
+        log<level::ERR>(
+            "Master phase write read command: Read & write count are 0");
+        return ipmi::responseInvalidFieldRequest();
+    }
+
+    // check phase
+    if (phase != 0xff && phase >= 3)
+    {
+        log<level::ERR>("Master phase write read command: Invalid phase");
+        return ipmi::responseInvalidFieldRequest();
+    }
+
+    // check is valid PMBUS
+    if (!isCmdPmbusAllowed(static_cast<uint8_t>(busId),
+                           static_cast<uint8_t>(slaveAddr), writeData))
+    {
+        log<level::ERR>("Master phase write read command: Command blocked",
+                        entry("BUS=%d", static_cast<uint8_t>(busId)),
+                        entry("ADDR=0x%x", static_cast<uint8_t>(slaveAddr)));
+        return ipmi::responseInvalidFieldRequest();
+    }
+
+    // set selected phase
+    ipmi::Cc ret;
+    std::string i2cBus =
+        "/dev/i2c-" + std::to_string(static_cast<uint8_t>(busId));
+    static std::vector<uint8_t> phaseReadBuf = {};
+    ret = ipmi::i2cWriteRead(i2cBus, static_cast<uint8_t>(slaveAddr),
+                             std::vector<uint8_t>{phase}, phaseReadBuf);
+    if (ret != ipmi::ccSuccess)
+    {
+        return ipmi::response(ret);
+    }
+
+    // execute command
+    std::vector<uint8_t> readBuf(readCount);
+    ret = ipmi::i2cWriteRead(i2cBus, static_cast<uint8_t>(slaveAddr), writeData,
+                             readBuf);
+    if (ret != ipmi::ccSuccess)
+    {
+        return ipmi::response(ret);
+    }
+
+    // set phase to 0xff
+    ret = ipmi::i2cWriteRead(i2cBus, static_cast<uint8_t>(slaveAddr),
+                             std::vector<uint8_t>{0xFF}, phaseReadBuf);
+    if (ret != ipmi::ccSuccess)
+    {
+        return ipmi::response(ret);
+    }
+
+    return ipmi::responseSuccess(readBuf);
+}
+
 } // namespace psu
 
 namespace cpld
@@ -298,7 +363,7 @@ static const std::string CPLD = "CPLD";
 static const std::string SCM_CPLD = "DC-SCM CPLD";
 static constexpr auto CPLD_BUF_MAX = 8;
 static const std::vector<uint8_t> CPLD_VER_CMD = {0xC0, 0x0, 0x0, 0x0};
-static const std::vector<uint8_t> SCM_CPLD_VER_CMD = {0x0};
+static const std::vector<uint8_t> SCM_CPLD_VER_CMD = {0xC0, 0x0, 0x0, 0x0};
 
 int read_clpd_version(int i2cdev, FW_CONFIG cfg, std::string& ver)
 {
@@ -311,7 +376,12 @@ int read_clpd_version(int i2cdev, FW_CONFIG cfg, std::string& ver)
         cfg.wr_cmds.size() > CPLD_BUF_MAX)
     {
         log<level::ERR>("CPLD data out of buffer");
-        return -1;
+        return ipmi::ccParmOutOfRange;
+    }
+    if (cfg.rd_len > 4)
+    {
+        log<level::ERR>("We are now only support 4 byte version");
+        return ipmi::ccParmOutOfRange;
     }
 
     // set up CPLD version command
@@ -337,10 +407,12 @@ int read_clpd_version(int i2cdev, FW_CONFIG cfg, std::string& ver)
         return ret;
     }
     // cast uint8 to char to build string
-    ver = std::string(reinterpret_cast<const char*>(buf), cfg.rd_len);
+    // ver = std::string(reinterpret_cast<const char*>(buf), cfg.rd_len);
     // ver = std::to_string(buf[0]);
+    uint32_t data = buf[0] << 24 | buf[1] << 16 | buf[2] << 8 | buf[3];
+    ver = std::to_string(data);
 
-    return 0;
+    return ipmi::ccSuccess;
 }
 
 int getCpldVersionInfo(ipmi::Context::ptr& ctx, std::string& ver,
@@ -360,8 +432,8 @@ int getCpldVersionInfo(ipmi::Context::ptr& ctx, std::string& ver,
     {
         cfg_typename = SCM_CPLD;
         config.wr_cmds = SCM_CPLD_VER_CMD;
-        config.wr_len = 1;
-        config.rd_len = 1;
+        config.wr_len = 4;
+        config.rd_len = 4;
     }
     else
         return ret;
