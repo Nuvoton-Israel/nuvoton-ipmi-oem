@@ -305,8 +305,9 @@ ipmi::RspType<uint8_t, uint8_t> ipmiOEMGetGpio(uint8_t pinNum)
     return ipmiOEMGetGpioStatus(pinNum);
 }
 
-ipmi::RspType<> ipmiFwUpdate(uint8_t target, uint8_t region, uint8_t action,
-                             std::optional<std::vector<uint8_t>> image)
+ipmi::RspType<uint8_t> ipmiFwUpdate(uint8_t target, uint8_t region,
+                                    uint8_t action,
+                                    std::optional<std::vector<uint8_t>> image)
 {
     std::string img;
     std::string msg;
@@ -323,7 +324,7 @@ ipmi::RspType<> ipmiFwUpdate(uint8_t target, uint8_t region, uint8_t action,
     switch (target)
     {
         case as_int(FirmwareTarget::PSU):
-            return ipmiOemPsuFwUpdate(region, action, img);
+            return psu::ipmiOemPsuFwUpdate(region, action, img);
     }
     return ipmi::responseUnspecifiedError();
 }
@@ -369,6 +370,9 @@ static void registerOEMFunctions(void)
     // <OEM firmware update command>
     registerHandler(prioOemBase, netFnOemFive, nuvoton::cmdFirmwareUpdate,
                     Privilege::User, nuvoton::ipmiFwUpdate);
+    // Master Phase Write Read
+    registerHandler(prioOemBase, netFnOemFive, nuvoton::cmdPsuPhase,
+                    Privilege::User, nuvoton::psu::masterPhase);
 }
 
 } // namespace ipmi

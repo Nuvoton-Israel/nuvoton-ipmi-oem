@@ -44,6 +44,7 @@ static constexpr Cmd cmdGetFimwareVer = 0x0b;
 static constexpr Cmd cmdGetPostCode = 0x73;
 static constexpr Cmd cmdFirmwareUpdate = 0x84;
 static constexpr Cmd cmdGetGpioStatus = 0xE1;
+static constexpr Cmd cmdPsuPhase = 0x54;
 
 std::unique_ptr<IpmiPwmcontrol> pwm_control;
 void createPwmControl();
@@ -52,8 +53,6 @@ ipmi::RspType<> ipmiOEMSetManualPwm(uint8_t enabled);
 ipmi::RspType<uint8_t> ipmiOEMGetPwm(uint8_t pwm_id);
 ipmi::RspType<uint8_t> ipmiOEMSetPwm(uint8_t pwm_id, uint8_t value);
 ipmi::RspType<uint8_t, uint8_t> ipmiOEMGetGpioStatus(uint8_t pinNum);
-ipmi::RspType<> ipmiOemPsuFwUpdate(uint8_t region, uint8_t action,
-                                   std::string image);
 
 } // namespace nuvoton
 

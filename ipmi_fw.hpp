@@ -45,6 +45,12 @@ int getPsuVersionInfo(ipmi::Context::ptr& ctx, std::string& ver);
 void startflashPsu(sdbusplus::bus::bus& bus);
 void subscribeToSystemdSignals(sdbusplus::bus::bus& bus);
 void unsubscribeFromSystemdSignals(sdbusplus::bus::bus& bus);
+ipmi::RspType<uint8_t> ipmiOemPsuFwUpdate(uint8_t region, uint8_t action,
+                                          std::string image);
+ipmi::RspType<std::vector<uint8_t>>
+    masterPhase(bool isPrivateBus, uint3_t busId, uint4_t channelNum,
+                bool reserved, uint7_t slaveAddr, uint8_t phase,
+                uint8_t readCount, std::vector<uint8_t> writeData);
 } // namespace psu
 
 namespace cpld
