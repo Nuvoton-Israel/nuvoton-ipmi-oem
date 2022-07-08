@@ -125,6 +125,7 @@ int getPostCodes(uint16_t index, std::string service,
     }
     if (post_codes.empty())
     {
+        codes.resize(MAX_CODE_BYTES, 0);
         return 0;
     }
     // convert a(tay) to at, we only need the code and ignore desc
@@ -136,6 +137,16 @@ int getPostCodes(uint16_t index, std::string service,
     {
         size_t rm_count = codes.size() - MAX_CODE_BYTES;
         codes.erase(codes.begin(), codes.begin() + rm_count);
+    }
+    // Vendor ask add this
+    if (codes.size() < MAX_CODE_BYTES)
+    {
+        size_t leak_num = MAX_CODE_BYTES - codes.size();
+        std::vector<int> additional(leak_num, 0);
+        std::string msg = "code size:" + std::to_string(codes.size()) +
+                          ", add size: " + std::to_string(additional.size());
+        log<level::INFO>(msg.c_str());
+        codes.insert(codes.begin(), additional.begin(), additional.end());
     }
     return 0;
 }
