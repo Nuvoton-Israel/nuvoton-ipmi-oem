@@ -370,6 +370,7 @@ int read_clpd_version(int i2cdev, FW_CONFIG cfg, std::string& ver)
     struct i2c_rdwr_ioctl_data i2c_rdwr;
     struct i2c_msg i2cmsg[2];
     uint8_t buf[CPLD_BUF_MAX];
+    char hexstr[CPLD_BUF_MAX + 1];
     int ret;
     std::string msg;
     if (cfg.wr_len > CPLD_BUF_MAX || cfg.rd_len > CPLD_BUF_MAX ||
@@ -409,8 +410,13 @@ int read_clpd_version(int i2cdev, FW_CONFIG cfg, std::string& ver)
     // cast uint8 to char to build string
     // ver = std::string(reinterpret_cast<const char*>(buf), cfg.rd_len);
     // ver = std::to_string(buf[0]);
-    uint32_t data = buf[0] << 24 | buf[1] << 16 | buf[2] << 8 | buf[3];
-    ver = std::to_string(data);
+    // uint32_t data = buf[0] << 24 | buf[1] << 16 | buf[2] << 8 | buf[3];
+    // ver = std::to_string(data);
+    for (size_t i = 0; i < cfg.rd_len; i++)
+    {
+        sprintf(hexstr + i * 2, "%02x", buf[i]);
+    }
+    ver = std::string(hexstr);
 
     return ipmi::ccSuccess;
 }

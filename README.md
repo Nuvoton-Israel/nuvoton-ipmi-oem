@@ -82,11 +82,11 @@ root@scm-npcm845:~# ipmitool raw 0x38 0x0b 0x03
 
 # CPLD version
 root@scm-npcm845:~# ipmitool raw 0x38 0xb 0x1
- 36 39 31 32 34
+ 30 30 30 31 30 65 30 34
 
 # SCM CPLD version
 root@scm-npcm845:~# ipmitool raw 0x38 0xb 0x7
- 32 39 36 30 31 33 33 31 32 34
+ 62 30 37 30 30 63 30 34
 ```
 
 ### Get GPIO status
@@ -98,7 +98,7 @@ root@scm-npcm845:~# ipmitool raw 0x30 0xE1 233
 ### Master Phase Write Read
 ```bash
 # Enter phase 0 then get PSU version with image A
-root@scm-npcm845:~# ipmitool raw 0x38 0x54 0xE 0xB0 0x00 0x0A 0xEF 0x01 0x0A
+root@scm-npcm845:~# ipmitool raw 0x38 0x54 0xF 0xB0 0x00 0x0A 0xEF 0x01 0x0A
  09 01 31 34 31 33 31 38 30 30
 ```
 
