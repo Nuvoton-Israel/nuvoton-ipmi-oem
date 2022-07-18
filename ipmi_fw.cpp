@@ -4,6 +4,8 @@
 #include <linux/i2c.h>
 #include <sys/ioctl.h>
 
+#include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <ipmid/api.hpp>
@@ -11,6 +13,7 @@
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/elog-errors.hpp>
 #include <phosphor-logging/log.hpp>
+#include <regex>
 #include <stdexcept>
 #include <xyz/openbmc_project/Common/error.hpp>
 
@@ -32,6 +35,7 @@ static constexpr auto FwWriteLength = "write_length";
 static constexpr auto FwReadLength = "read_lngth";
 static constexpr auto FwCommand = "command";
 static constexpr auto I2C_DEV = "/dev/i2c-";
+static constexpr auto MAX_DATA_BYTES = 240;
 
 Json parseJSONConfig(const std::string& configFile)
 {
@@ -90,7 +94,7 @@ int readFwConfig(std::string target, FW_CONFIG& fw_config)
     }
     msg = target + " bus: " + bus + ", address: " + address;
     msg += ", w:" + std::to_string(fw_config.wr_len) +
-           ",r:" + std::to_string(fw_config.rd_len);
+           ", r:" + std::to_string(fw_config.rd_len);
     log<level::INFO>(msg.c_str());
     msg = "cmd";
     for (auto data = fw_config.wr_cmds.begin(); data != fw_config.wr_cmds.end();
@@ -121,7 +125,6 @@ static constexpr auto PSU_SERVICE = "psu_update.service";
 static constexpr auto SYSTEMD_BUSNAME = "org.freedesktop.systemd1";
 static constexpr auto SYSTEMD_PATH = "/org/freedesktop/systemd1";
 static constexpr auto SYSTEMD_INTERFACE = "org.freedesktop.systemd1.Manager";
-static constexpr auto MAX_DATA_BYTES = 240;
 
 int read_fw_info(std::string bus_id, uint16_t address, uint8_t image,
                  std::string& ver, uint8_t* active)
@@ -456,6 +459,153 @@ int getCpldVersionInfo(ipmi::Context::ptr& ctx, std::string& ver,
 }
 
 } // namespace cpld
+
+// Level 2 mux may be a FPGA emulated bus, we need implement set channel
+ipmi::Cc setMuxChannel(std::string i2cBus, uint8_t slaveAddr,
+                       uint8_t channelNum)
+{
+    ipmi::Cc ret;
+    static std::vector<uint8_t> muxReadBuf = {};
+    uint8_t chControl = (uint8_t)1 << channelNum;
+    ret = ipmi::i2cWriteRead(i2cBus, static_cast<uint8_t>(slaveAddr),
+                             std::vector<uint8_t>{chControl}, muxReadBuf);
+    if (ret != ipmi::ccSuccess)
+    {
+        std::string msg = "I2C set mux channel failed, bus:" + i2cBus +
+                          ",addr:" + std::to_string(slaveAddr);
+        log<level::ERR>(msg.c_str());
+    }
+    return ret;
+}
+
+// Level 1 mux must define in DTS, and should be found as I2C bus
+// We should use it to make sure I2C transction is atomic.
+ipmi::Cc findMuxBus(uint8_t busId, uint8_t slaveAddr, uint8_t channelNum,
+                    std::string& i2cBus)
+{
+    namespace fs = std::filesystem;
+    // like /sys/class/i2c-dev/i2c-9/device
+    std::string bus_path =
+        "/sys/class/i2c-dev/i2c-" + std::to_string(busId) + "/device";
+    // like 11-0072
+    char mux_dev[8];
+    std::string msg;
+    sprintf(mux_dev, "%u-%04x", busId, slaveAddr);
+    std::string mux_path = std::string(mux_dev);
+    if (!fs::exists(bus_path) || !fs::exists(bus_path + "/" + mux_path))
+    {
+        msg = "Bus or mux not exists, bus:" + bus_path + ", mux:" + mux_path;
+        log<level::ERR>(msg.c_str());
+        return ipmi::ccInvalidFieldRequest;
+    }
+    std::string matchString = R"(i2c-\d+$)";
+    std::regex search(matchString);
+    std::smatch match;
+    std::vector<std::string> foundBusses;
+    for (auto p : std::filesystem::directory_iterator{bus_path})
+    {
+        std::string path = p.path().string();
+        if (std::regex_search(path, match, search))
+        {
+            foundBusses.push_back(match[0]);
+        }
+    }
+    std::sort(foundBusses.begin(), foundBusses.end());
+#ifdef DEBUG
+    msg = "";
+    for (auto const& _bus : foundBusses)
+    {
+        msg += _bus + " ";
+    }
+    log<level::INFO>(msg.c_str());
+#endif
+    if (channelNum >= foundBusses.size())
+    {
+        log<level::ERR>("Channel number is larget than found");
+        return ipmi::ccInvalidFieldRequest;
+    }
+    i2cBus = "/dev/" + foundBusses[channelNum];
+    return ipmi::ccSuccess;
+}
+
+// Test command ipmitool raw 0x38 0x53 0x13 0xE0 0x0 0xFF 0x00 0xD4 0x08 0x0
+// Read NVM-e status
+ipmi::RspType<std::vector<uint8_t>>
+    masterMuxWR(bool isPrivateBus, uint4_t busId, uint3_t reserved, bool resrv1,
+                uint7_t muxSlaveAddr1, uint3_t channelNum1, uint5_t resrv2,
+                bool secondMux, uint7_t muxSlaveAddr2, uint3_t channelNum2,
+                uint5_t resrv3, bool resrv4, uint7_t slaveAddr,
+                uint8_t readCount, std::vector<uint8_t> writeData)
+{
+    std::string msg =
+        "bus:" + std::to_string(static_cast<uint8_t>(busId)) +
+        ",address:" + std::to_string(static_cast<uint8_t>(slaveAddr)) +
+        ",SA1:" + std::to_string(static_cast<uint8_t>(muxSlaveAddr1)) +
+        ",CH1:" + std::to_string(static_cast<uint8_t>(channelNum1)) +
+        ",SA2:" + std::to_string(static_cast<uint8_t>(muxSlaveAddr2)) +
+        ",CH2:" + std::to_string(static_cast<uint8_t>(channelNum2)) +
+        ",read count:" + std::to_string(readCount);
+    log<level::INFO>(msg.c_str());
+    // normal check as master write read
+    uint32_t all_reserved = static_cast<uint8_t>(reserved) + resrv1 +
+                            static_cast<uint8_t>(resrv2) +
+                            static_cast<uint8_t>(resrv3) + resrv4;
+    if (all_reserved || !isPrivateBus)
+    {
+        return ipmi::responseInvalidFieldRequest();
+    }
+    if (readCount > MAX_DATA_BYTES)
+    {
+        log<level::ERR>(
+            "Master phase write read command: Read count exceeds limit");
+        return ipmi::responseParmOutOfRange();
+    }
+    const size_t writeCount = writeData.size();
+    if (writeCount > MAX_DATA_BYTES)
+    {
+        log<level::ERR>(
+            "Master phase write read command: write data exceeds limit");
+        return ipmi::responseParmOutOfRange();
+    }
+    if (!readCount && !writeCount)
+    {
+        log<level::ERR>(
+            "Master phase write read command: Read & write count are 0");
+        return ipmi::responseInvalidFieldRequest();
+    }
+
+    // find level 1 mux mapping bus
+    ipmi::Cc ret;
+    std::vector<uint8_t> readBuf(readCount);
+    std::string i2cBus;
+    ret = findMuxBus(static_cast<uint8_t>(busId),
+                     static_cast<uint8_t>(muxSlaveAddr1),
+                     static_cast<uint8_t>(channelNum1), i2cBus);
+    if (ret != ipmi::ccSuccess)
+    {
+        return ipmi::response(ret);
+    }
+
+    // if level 2 mux set, set mux channel first
+    if (secondMux == 0)
+    {
+        ret = setMuxChannel(i2cBus, static_cast<uint8_t>(muxSlaveAddr2),
+                            static_cast<uint8_t>(channelNum2));
+        if (ret != ipmi::ccSuccess)
+        {
+            return ipmi::response(ret);
+        }
+    }
+
+    // execute command
+    ret = ipmi::i2cWriteRead(i2cBus, static_cast<uint8_t>(slaveAddr), writeData,
+                             readBuf);
+    if (ret != ipmi::ccSuccess)
+    {
+        return ipmi::response(ret);
+    }
+    return ipmi::responseSuccess(readBuf);
+}
 
 } // namespace nuvoton
 

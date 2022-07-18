@@ -44,6 +44,7 @@ static constexpr Cmd cmdGetFimwareVer = 0x0b;
 static constexpr Cmd cmdGetPostCode = 0x73;
 static constexpr Cmd cmdFirmwareUpdate = 0x84;
 static constexpr Cmd cmdGetGpioStatus = 0xE1;
+static constexpr Cmd cmdMasterMuxWR = 0x53;
 static constexpr Cmd cmdPsuPhase = 0x54;
 
 std::unique_ptr<IpmiPwmcontrol> pwm_control;

@@ -59,6 +59,13 @@ int getCpldVersionInfo(ipmi::Context::ptr& ctx, std::string& ver,
                        uint8_t fw_type);
 } // namespace cpld
 
+ipmi::RspType<std::vector<uint8_t>>
+    masterMuxWR(bool isPrivateBus, uint4_t busId, uint3_t reserved, bool resrv1,
+                uint7_t muxSlaveAddr1, uint3_t channelNum1, uint5_t resrv2,
+                bool secondMux, uint7_t muxSlaveAddr2, uint3_t channelNum2,
+                uint5_t resrv3, bool resrv4, uint7_t slaveAddr,
+                uint8_t readCount, std::vector<uint8_t> writeData);
+
 } // namespace nuvoton
 
 } // namespace ipmi

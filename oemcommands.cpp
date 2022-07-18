@@ -383,6 +383,9 @@ static void registerOEMFunctions(void)
     // Master Phase Write Read
     registerHandler(prioOemBase, netFnOemFive, nuvoton::cmdPsuPhase,
                     Privilege::User, nuvoton::psu::masterPhase);
+    // Master Mux Write Read
+    registerHandler(prioOemBase, netFnOemFive, nuvoton::cmdMasterMuxWR,
+                    Privilege::User, nuvoton::masterMuxWR);
 }
 
 } // namespace ipmi

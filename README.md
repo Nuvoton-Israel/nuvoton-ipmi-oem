@@ -23,6 +23,7 @@ Please include the recipe **nuvoton-ipmi-oem** in the packagegroups and make the
 | Get firmware version | 0x38 | 0x0b | [fw_type] | [bytes length] [version] | fw_type:<br> 00h - BIOS<br>01h - CPLD<br>02h - BMC<br>03h - PSU<br/>Return data: version string presented as ASCII hex, CPLD will return direct version bytes. |
 | Get GPIO status| 0x30 | 0xE1 | [pin_number] | [direction] [value]| Return valid GPIO pin status, direction: 1=output, 0=input|
 | Master Phase Write Read |0x38| 0x54| [bus_id] [address] [phase] [read_count] [command] |Bytes read from the specified slave address.| Sending PMBUS commands to selected phase. The bus_id, address, read_count, command is defined as Master write-read command, please refer IPMI specification section 22.11. |
+| Master Muxed Write Read |0x38| 0x54| [bus_id] [mux_address1] [mux_channel1] [mux_address2] [mux_channel2] [address] [read_count] [command] |Bytes read from the specified slave address under mux.| This command extends the functionality of the Master Write-Read command by adding I2C channel selection capability. |
 
 ## Exmples
 ### Manual change PWM value
@@ -100,6 +101,17 @@ root@scm-npcm845:~# ipmitool raw 0x30 0xE1 233
 # Enter phase 0 then get PSU version with image A
 root@scm-npcm845:~# ipmitool raw 0x38 0x54 0xF 0xB0 0x00 0x0A 0xEF 0x01 0x0A
  09 01 31 34 31 33 31 38 30 30
+```
+
+### Master Muxed Write Read
+```bash
+# Read NVMe status at I2C bus 9, mux channel 0, mux address 0x70
+root@scm-npcm845:~# ipmitool raw 0x38 0x53 0x13 0xE0 0x0 0xFF 0x00 0xD4 0x08 0x0
+ 06 bb ff 35 00 4d 00 29
+# Read NVMe VID and serial number
+root@scm-npcm845:~# ipmitool raw 0x38 0x53 0x13 0xE0 0x0 0xFF 0x00 0xD4 0x18 0x8
+ 16 14 4d 53 36 35 34 4e 47 30 52 39 30 30 37 36
+ 38 20 20 20 20 20 20 25
 ```
 
 ## OEM version configuration
