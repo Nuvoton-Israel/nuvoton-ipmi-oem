@@ -478,6 +478,7 @@ ipmi::Cc setMuxChannel(std::string i2cBus, uint8_t slaveAddr,
     return ret;
 }
 
+#ifdef SEARCH_MUX_BUS
 // Level 1 mux must define in DTS, and should be found as I2C bus
 // We should use it to make sure I2C transction is atomic.
 ipmi::Cc findMuxBus(uint8_t busId, uint8_t slaveAddr, uint8_t channelNum,
@@ -527,6 +528,7 @@ ipmi::Cc findMuxBus(uint8_t busId, uint8_t slaveAddr, uint8_t channelNum,
     i2cBus = "/dev/" + foundBusses[channelNum];
     return ipmi::ccSuccess;
 }
+#endif
 
 // Test command ipmitool raw 0x38 0x53 0x13 0xE0 0x0 0xFF 0x00 0xD4 0x08 0x0
 // Read NVM-e status
@@ -578,6 +580,7 @@ ipmi::RspType<std::vector<uint8_t>>
     ipmi::Cc ret;
     std::vector<uint8_t> readBuf(readCount);
     std::string i2cBus;
+#ifdef SEARCH_MUX_BUS
     ret = findMuxBus(static_cast<uint8_t>(busId),
                      static_cast<uint8_t>(muxSlaveAddr1),
                      static_cast<uint8_t>(channelNum1), i2cBus);
@@ -585,10 +588,23 @@ ipmi::RspType<std::vector<uint8_t>>
     {
         return ipmi::response(ret);
     }
-
+#else
+    i2cBus = I2C_DEV + std::to_string(static_cast<uint8_t>(busId));
+    log<level::INFO>("set level 1 mux channel",
+                     entry("CHANNEL=%d", static_cast<uint8_t>(channelNum1)));
+    ret = setMuxChannel(i2cBus, static_cast<uint8_t>(muxSlaveAddr1),
+                        static_cast<uint8_t>(channelNum1));
+    if (ret != ipmi::ccSuccess)
+    {
+        return ipmi::response(ret);
+    }
+#endif
     // if level 2 mux set, set mux channel first
     if (secondMux == 0)
     {
+        log<level::INFO>(
+            "set level 2 mux channel",
+            entry("CHANNEL=%d", static_cast<uint8_t>(channelNum2)));
         ret = setMuxChannel(i2cBus, static_cast<uint8_t>(muxSlaveAddr2),
                             static_cast<uint8_t>(channelNum2));
         if (ret != ipmi::ccSuccess)
