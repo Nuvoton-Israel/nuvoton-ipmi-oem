@@ -59,19 +59,16 @@ AM_CONDITIONAL([HAVE_SYSTEMD], [test "x$with_systemdsystemunitdir" != "xno"])
 
 AC_ARG_VAR(SOC, [platform target SOC])
 AS_IF([test "x$SOC" != "x"],
-    AC_MSG_NOTICE([SOC set $SOC])
-    [cpp_flags="-D$SOC"]
-    AC_SUBST([CPPFLAGS], [$cpp_flags]),
-    AC_MSG_WARN([SOC not defined])
+    [cpp_flags="-D$SOC"],
+    [AC_MSG_WARN([SOC not defined])]
 )
 
 AC_ARG_VAR(DISABLE_SERACH_MUX_BUS, [set mux channel directly instead of search I2C mux bus])
 AS_IF([test "x$DISABLE_SERACH_MUX_BUS" == "x"],
-    AC_MSG_NOTICE([search mux bus default set enabled])
-    [cpp_flags="-DSEARCH_MUX_BUS"]
-    AC_SUBST([CPPFLAGS], [$cpp_flags]),
-    AC_MSG_NOTICE([search mux bus set disabled])
+    [cpp_flags="-DSEARCH_MUX_BUS $cpp_flags"],
+    [AC_MSG_NOTICE([search mux bus set disabled])]
 )
+AC_SUBST([CPPFLAGS], [$cpp_flags])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
