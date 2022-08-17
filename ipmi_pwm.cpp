@@ -32,6 +32,7 @@ constexpr auto FAN_COMMON_OBJ_PATH = "/xyz/openbmc_project/sensors/fan_tach";
 // constexpr auto FAN_PWM_PATH = "/xyz/openbmc_project/sensors/fan_pwm/Pwm_";
 // Dbus sensor PWM object path which implement control interface
 constexpr auto FAN_PWM_CTRL_PATH = "/xyz/openbmc_project/control/fanpwm/Pwm_";
+constexpr auto FAN_PWM_CTRL_PATH_U = "/xyz/openbmc_project/control/fanpwm/PWM_";
 // TODO: check the object FanX is fixed or setting by conf?
 // Hwmon PWM object path
 constexpr auto FAN_TACH_PATH = "/xyz/openbmc_project/sensors/fan_tach/Fan";
@@ -65,6 +66,23 @@ std::string IpmiPwmcontrol::getFanService()
         msg = "Cannot get fan tach sensor service, " + std::string(e.what());
         log<level::ERR>(msg.c_str());
     }
+    // check PWM object is all upper case or normal case
+    if (fan_service.find("xyz.openbmc_project.FanSensor") != std::string::npos)
+    {
+        try
+        {
+            std::string fullPath = FAN_PWM_CTRL_PATH_U + std::string("1");
+            ipmi::getAllDbusProperties(*getSdBus(), fan_service, fullPath,
+                                       FAN_CTRL_PWM_INTF);
+            _is_pwm_upper = true;
+            log<level::DEBUG>("use upper case pwm object");
+        }
+        catch (const std::exception& e)
+        {
+            _is_pwm_upper = false;
+        }
+    }
+
     return fan_service;
 }
 
@@ -160,7 +178,10 @@ uint8_t IpmiPwmcontrol::getPwmValue(uint8_t instance, uint8_t* value)
             fullPath = FAN_TACH_PATH + std::to_string(instance + 1);
             break;
         case fanServiceDbusSensor:
-            fullPath = FAN_PWM_CTRL_PATH + std::to_string(instance + 1);
+            if (_is_pwm_upper)
+                fullPath = FAN_PWM_CTRL_PATH_U + std::to_string(instance + 1);
+            else
+                fullPath = FAN_PWM_CTRL_PATH + std::to_string(instance + 1);
             break;
         default:
             return IPMI_CC_UNSPECIFIED_ERROR;

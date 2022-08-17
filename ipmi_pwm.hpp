@@ -44,6 +44,7 @@ class IpmiPwmcontrol
 
   private:
     std::string _fan_service = "";
+    bool _is_pwm_upper = false;
     uint8_t dbusSetPwm(uint8_t instance, uint8_t value);
     uint8_t hwmonSetPwm(uint8_t instance, uint8_t value);
     std::string getFanService();
