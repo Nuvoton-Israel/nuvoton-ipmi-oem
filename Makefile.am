@@ -11,7 +11,7 @@ libnuvoemcmds_la_CXXFLAGS = \
 	$(SDBUSPLUS_CFLAGS) \
 	$(LIBIPMID_CFLAGS) \
 	$(PHOSPHOR_LOGGING_CFLAGS) \
-	-flto
+	-flto --std=c++20
 libnuvoemcmds_la_LDFLAGS = \
 	$(SDBUSPLUS_LIBS) \
 	$(LIBIPMID_LIBS) \
