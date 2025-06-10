@@ -303,17 +303,11 @@ struct gpio_lookup gpio_94_1 =
 struct gpio_lookup gpio_95_1 =
 {0, 1, MFSEL4, 8, NULL};
 
-struct gpio_lookup gpio_96_2 =
+struct gpio_lookup gpio_96_1 =
 {0, 1, MFSEL7, 7, NULL};
 
-struct gpio_lookup gpio_96_1 =
-{0, 1, MFSEL6, 24, &gpio_96_2};
-
-struct gpio_lookup gpio_97_2 =
-{0, 1, MFSEL7, 6, NULL};
-
 struct gpio_lookup gpio_97_1 =
-{0, 1, MFSEL6, 25, &gpio_97_2};
+{0, 1, MFSEL7, 6, NULL};
 
 struct gpio_lookup gpio_98_2 =
 {0, 1, MFSEL7, 5, NULL};
@@ -640,9 +634,9 @@ struct gpio_lookup gpioLUT[GPIO_NUM] =
 // gpio 34
 {0, 1, MFSEL6, 10, NULL},
 // gpio 35
-{DEF_NONE, 0, 0, 0, NULL},
+{1, 1, MFSEL5, 16, NULL},
 // gpio 36
-{DEF_NONE, 0, 0, 0, NULL},
+{1, 1, MFSEL5, 18, NULL},
 // gpio 37
 {0, 1, I2CSEGSEL, 12, &gpio_37_1 },
 // gpio 38
@@ -762,17 +756,17 @@ struct gpio_lookup gpioLUT[GPIO_NUM] =
 // gpio 95
 {0, 1, MFSEL1, 26, &gpio_95_1 },
 // gpio 96
-{0, 1, MFSEL4, 22, &gpio_96_1 },
+{0, 1, MFSEL6, 24, &gpio_96_1 },
 // gpio 97
-{0, 1, MFSEL4, 22, &gpio_97_1 },
+{0, 1, MFSEL6, 25, &gpio_97_1 },
 // gpio 98
 {0, 1, MFSEL5, 13, &gpio_98_1 },
 // gpio 99
 {0, 1, MFSEL5, 13, &gpio_99_1 },
 // gpio 100
-{0, 1, MFSEL5, 13, &gpio_100_1 },
+{0, 1, MFSEL5, 12, &gpio_100_1 },
 // gpio 101
-{0, 1, MFSEL5, 13, &gpio_101_1 },
+{0, 1, MFSEL5, 12, &gpio_101_1 },
 // gpio 102
 {0, 1, MFSEL7, 29, NULL},
 // gpio 103
@@ -894,7 +888,7 @@ struct gpio_lookup gpioLUT[GPIO_NUM] =
 // gpio 161
 {0, 1, MFSEL1, 26, &gpio_161_1 },
 // gpio 162
-{0, 1, MFSEL1, 31, NULL},
+{0, 1, MFSEL3, 16, NULL},
 // gpio 163
 {0, 1, MFSEL1, 26, &gpio_163_1 },
 // gpio 164
@@ -950,7 +944,7 @@ struct gpio_lookup gpioLUT[GPIO_NUM] =
 // gpio 189
 {1, 1, MFSEL7, 25, NULL},
 // gpio 190
-{1, 1, FLOCKR1, 20, NULL},
+{0, 1, FLOCKR1, 20, NULL},
 // gpio 191
 {0, 1, MFSEL5, 3, &gpio_191_1 },
 // gpio 192

@@ -36,8 +36,10 @@ class gpio:
         while fn < max_fn and _data[index].strip().upper() != "NONE":
             gpio_fn = gpio_function(_data[index], _data[index+1], _data[index+2])
             self.functions.append(gpio_fn)
-            # if function named "gpio", we can directly check the MFSEL bit is set
-            if _data[index].strip().startswith("gpio"):
+            # if function named "gpio", "gpi", or "gpo", we can directly check
+            # the MFSEL bit is set
+            if _data[index].strip().startswith("gpi") or \
+               _data[index].strip().startswith("gpo"):
                 if VERBOSE:
                     print("GPIO fn pin: {}, fn: {}".format(self.pin, fn))
                 self.functions = [gpio_fn]
